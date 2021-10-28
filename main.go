@@ -1,4 +1,4 @@
-package twitterLikeHW
+package main
 
 import (
 	"Design_System/twitterLikeHW/handlers"
@@ -11,29 +11,28 @@ import (
 	"time"
 )
 
-
-func newServer() *http.Server{
+func NewServer() *http.Server {
 	r := mux.NewRouter()
 
 	handler := &handlers.HTTPHandler{
-		storage: make(map[string]string),
+		Storage: make(map[handlers.PostId]handlers.Post),
 	}
 
-	r.HandleFunc("/", handleRoot).Methods("GET", "POST")
-	r.HandleFunc("/api/v1/posts", handler.handleCreatePost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posts/{postId:\\w}", handler.handleGetPosts).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{userId:\\w}/posts", handler.handleGetUserPosts).Methods(http.MethodGet)
+	r.HandleFunc("/", handlers.HandleRoot).Methods("GET", "POST")
+	r.HandleFunc("/api/v1/posts", handler.HandleCreatePost).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/posts/{postId:\\w}", handler.HandleGetPosts).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{userId:\\w}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
 
 	return &http.Server{
-		Handler: 	  r,
-		Addr: 		  "0.0.0.0:8080",
+		Handler:      r,
+		Addr:         "0.0.0.0:8080",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 }
 
 func main() {
-	srv := newServer()
+	srv := NewServer()
 	log.Printf("Start serving on %s", srv.Addr)
 	log.Fatal(srv.ListenAndServe())
 }
