@@ -56,6 +56,9 @@ func HandleRoot(rw http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) {
 	tokenHeader := r.Header.Get("System-Design-User-Id")
+	if tokenHeader == "" {
+		http.Error(rw, "problem with token", http.StatusUnauthorized)
+	}
 
 	rw.Header().Set("Content-Type", "application/json")
 	var post PutRequestData
@@ -81,7 +84,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	response := PutResponseData{
 		Key: newPost,
 	}
-	rawResponse, _ := json.Marshal(response)
+	rawResponse, _ := json.Marshal(response.Key)
 
 	_, err = rw.Write(rawResponse)
 	if err != nil {
@@ -100,11 +103,37 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 		http.NotFound(rw, r)
 		return
 	}
-	_, err := rw.Write([]byte(postText.Text))
+	response := PutResponseData{
+		Key: postText,
+	}
+	rawResponse, _ := json.Marshal(response.Key)
+	_, err := rw.Write(rawResponse)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 }
 
-func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {}
+func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
+	userId := strings.TrimSuffix(r.URL.Path, "/api/v1/users/")
+	userId = strings.TrimSuffix(userId, "/posts")
+	Id := UserId{Userid: userId}
+	h.StorageMu.RUnlock()
+	countPosts := 0
+	for _, value := range h.Storage { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
+		if value.AuthorId == &Id && countPosts < 10 {
+			countPosts += 1
+
+			response := PutResponseData{
+				Key: value,
+			}
+			rawResponse, _ := json.Marshal(response.Key)
+			_, err := rw.Write(rawResponse)
+			if err != nil {
+				http.Error(rw, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+	}
+	h.StorageMu.RUnlock()
+}

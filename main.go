@@ -20,8 +20,8 @@ func NewServer() *http.Server {
 
 	r.HandleFunc("/", handlers.HandleRoot).Methods("GET", "POST")
 	r.HandleFunc("/api/v1/posts", handler.HandleCreatePost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posts/{postId:\\w}", handler.HandleGetPosts).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{userId:\\w}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posts/{postId:\\w{5}}", handler.HandleGetPosts).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{userId:\\w{4}}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
 
 	return &http.Server{
 		Handler:      r,
