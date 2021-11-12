@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 )
+
+var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
 type PostId struct {
 	Postid string
@@ -60,7 +63,7 @@ func HandleRoot(rw http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) {
 	tokenHeader := r.Header.Get("System-Design-User-Id")
-	if tokenHeader == "" {
+	if tokenHeader == "" || !authorIdPattern.MatchString(tokenHeader) {
 		http.Error(rw, "problem with token", http.StatusUnauthorized)
 	}
 
@@ -88,6 +91,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 	rawResponse, _ := json.Marshal(newPost)
 	_, err = rw.Write(rawResponse)
+
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
