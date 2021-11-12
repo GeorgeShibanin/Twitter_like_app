@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,10 +24,10 @@ type ISOTimestamp struct {
 }
 
 type Post struct {
-	Id        *PostId      `json:"id"`
-	Text      string       `json:"text"`
-	AuthorId  *UserId      `json:"authorId"`
-	CreatedAt ISOTimestamp `json:"createdAt"`
+	Id        string `json:"id"`
+	Text      string `json:"text"`
+	AuthorId  string `json:"authorId"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type PageToken struct {
@@ -40,7 +41,10 @@ type HTTPHandler struct {
 type PutResponseData struct {
 	Key Post `json:"Post" `
 }
-
+type PutAllPostsResponseData struct {
+	Posts    []Post `json:"posts"`
+	NextPage string `json:"nextpage"`
+}
 type PutRequestData struct {
 	Text string `json:"text"`
 }
@@ -68,24 +72,21 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	newId := generator.GetRandomKey()
-	Id := PostId{Postid: newId}
+	newId, _ := generator.GenerateBase64ID(6)
 	newPost := Post{
-		Id:        &Id,
+		Id:        newId,
 		Text:      post.Text,
-		AuthorId:  &UserId{Userid: tokenHeader},
-		CreatedAt: ISOTimestamp{time.Now()},
+		AuthorId:  tokenHeader,
+		CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 	}
-
+	idPost := PostId{
+		Postid: newPost.Id,
+	}
 	h.StorageMu.Lock()
-	h.Storage[Id] = newPost
+	h.Storage[idPost] = newPost
 	h.StorageMu.Unlock()
 
-	response := PutResponseData{
-		Key: newPost,
-	}
-	rawResponse, _ := json.Marshal(response.Key)
-
+	rawResponse, _ := json.Marshal(newPost)
 	_, err = rw.Write(rawResponse)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
@@ -103,10 +104,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 		http.NotFound(rw, r)
 		return
 	}
-	response := PutResponseData{
-		Key: postText,
-	}
-	rawResponse, _ := json.Marshal(response.Key)
+	rawResponse, _ := json.Marshal(postText)
 	_, err := rw.Write(rawResponse)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
@@ -115,25 +113,37 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
-	userId := strings.TrimSuffix(r.URL.Path, "/api/v1/users/")
-	userId = strings.TrimSuffix(userId, "/posts")
-	Id := UserId{Userid: userId}
-	h.StorageMu.RUnlock()
-	countPosts := 0
+	userId := strings.TrimSuffix(r.URL.Path, "/posts")
+	Id := strings.TrimPrefix(userId, "/api/v1/users/")
+	h.StorageMu.RLock()
+	var finalResponse []Post
 	for _, value := range h.Storage { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
-		if value.AuthorId == &Id && countPosts < 10 {
-			countPosts += 1
-
-			response := PutResponseData{
-				Key: value,
-			}
-			rawResponse, _ := json.Marshal(response.Key)
-			_, err := rw.Write(rawResponse)
-			if err != nil {
-				http.Error(rw, err.Error(), http.StatusBadRequest)
-				return
-			}
+		if value.AuthorId == Id {
+			finalResponse = append(finalResponse, value)
 		}
 	}
 	h.StorageMu.RUnlock()
+
+	sort.Slice(finalResponse, func(i, j int) bool {
+		layout := "2006-01-02T15:04:05.000Z"
+		first, _ := time.Parse(layout, finalResponse[i].CreatedAt)
+		second, _ := time.Parse(layout, finalResponse[j].CreatedAt)
+		return first.After(second)
+	})
+	//Вернуть 10 постов и 1 pagetoken
+	rawResponse := PutAllPostsResponseData{}
+	if len(finalResponse) >= 11 {
+		rawResponse.Posts = finalResponse[0:10]
+		rawResponse.NextPage = finalResponse[10].Id
+	} else {
+		rawResponse.Posts = finalResponse
+		rawResponse.NextPage = ""
+	}
+
+	returnResponse, _ := json.Marshal(rawResponse)
+	_, err := rw.Write(returnResponse)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
