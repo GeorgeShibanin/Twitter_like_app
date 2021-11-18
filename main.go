@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"os"
 	_ "strconv"
 	_ "strings"
 	"time"
@@ -23,9 +24,14 @@ func NewServer() *http.Server {
 	r.HandleFunc("/api/v1/posts/{postId:\\w{8}}", handler.HandleGetPosts).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/{userId:\\w{4}}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
 
+	port := "9091"
+	if value, ok := os.LookupEnv("SERVER_PORT"); ok {
+		port = value
+	}
+
 	return &http.Server{
 		Handler:      r,
-		Addr:         "0.0.0.0:8080",
+		Addr:         ":" + port,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
