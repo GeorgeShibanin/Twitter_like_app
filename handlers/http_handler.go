@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -75,7 +76,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	newId, _ := generator.GenerateBase64ID(6)
+	newId, _ := generator.GenerateBase64ID(10)
 	newPost := Post{
 		Id:        newId,
 		Text:      post.Text,
@@ -117,8 +118,21 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
+	pagetoken := PageToken{token: r.URL.Query().Get("page")}
+	size := r.URL.Query().Get("size")
+	sizepage, _ := strconv.Atoi(size)
+	if size == "" {
+		sizepage = 10
+	} else {
+		if sizepage < 0 {
+			http.Error(rw, "Invalid size", http.StatusBadRequest)
+			return
+		}
+	}
+
 	userId := strings.TrimSuffix(r.URL.Path, "/posts")
 	Id := strings.TrimPrefix(userId, "/api/v1/users/")
+
 	h.StorageMu.RLock()
 	var finalResponse []Post
 	for _, value := range h.Storage { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
@@ -128,6 +142,11 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	}
 	h.StorageMu.RUnlock()
 
+	if len(finalResponse) == 0 {
+		http.Error(rw, "NoUserPostsOrInvalidUserName", http.StatusBadRequest)
+		return
+	}
+
 	sort.Slice(finalResponse, func(i, j int) bool {
 		layout := "2006-01-02T15:04:05.000Z"
 		first, _ := time.Parse(layout, finalResponse[i].CreatedAt)
@@ -136,9 +155,20 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	})
 	//Вернуть 10 постов и 1 pagetoken
 	rawResponse := PutAllPostsResponseData{}
-	if len(finalResponse) >= 11 {
-		rawResponse.Posts = finalResponse[0:10]
-		rawResponse.NextPage = finalResponse[10].Id
+	startPage := 0
+	for i, value := range finalResponse {
+		if pagetoken.token != "" && value.Id == pagetoken.token {
+			startPage = i
+		}
+	}
+	if pagetoken.token != "" && startPage == 0 {
+		http.Error(rw, "InvalidPageToken", http.StatusBadRequest)
+		return
+	}
+	finalResponse = finalResponse[startPage:]
+	if len(finalResponse) >= sizepage+1 {
+		rawResponse.Posts = finalResponse[0:sizepage]
+		rawResponse.NextPage = finalResponse[sizepage].Id
 	} else {
 		rawResponse.Posts = finalResponse
 		rawResponse.NextPage = ""

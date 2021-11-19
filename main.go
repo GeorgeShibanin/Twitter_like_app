@@ -21,10 +21,10 @@ func NewServer() *http.Server {
 
 	r.HandleFunc("/", handlers.HandleRoot).Methods("GET", "POST")
 	r.HandleFunc("/api/v1/posts", handler.HandleCreatePost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posts/{postId:\\w{8}}", handler.HandleGetPosts).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{userId:\\w{4}}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posts/{postId}", handler.HandleGetPosts).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{userId}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
 
-	port := "9091"
+	port := "8080"
 	if value, ok := os.LookupEnv("SERVER_PORT"); ok {
 		port = value
 	}
