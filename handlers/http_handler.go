@@ -148,11 +148,6 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	}
 	h.StorageMu.RUnlock()
 
-	//if len(finalResponse) == 0 {
-	//	http.Error(rw, "NoUserPostsOrInvalidUserName", http.StatusBadRequest)
-	//	return
-	//}
-
 	sort.Slice(finalResponse, func(i, j int) bool {
 		layout := "2006-01-02T15:04:05.000Z"
 		first, _ := time.Parse(layout, finalResponse[i].CreatedAt)
@@ -177,6 +172,10 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		rawResponse.NextPage = finalResponse[sizepage].Id
 	} else {
 		rawResponse.Posts = finalResponse
+		rawResponse.NextPage = ""
+	}
+	if len(finalResponse) == 0 {
+		rawResponse.Posts = make([]Post, 0)
 		rawResponse.NextPage = ""
 	}
 
