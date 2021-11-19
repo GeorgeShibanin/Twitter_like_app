@@ -175,7 +175,8 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		rawResponse.NextPage = ""
 	}
 	if len(finalResponse) == 0 {
-		rawResponse.Posts = make([]Post, 0)
+		var nilPost []Post
+		rawResponse.Posts = nilPost
 		rawResponse.NextPage = ""
 	}
 
