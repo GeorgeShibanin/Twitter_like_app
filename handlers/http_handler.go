@@ -68,7 +68,6 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		http.Error(rw, "problem with token", http.StatusUnauthorized)
 	}
 
-	rw.Header().Set("Content-Type", "application/json")
 	var post PutRequestData
 	err := json.NewDecoder(r.Body).Decode(&post)
 	if err != nil {
@@ -76,7 +75,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	newId, _ := generator.GenerateBase64ID(10)
+	newId, _ := generator.GenerateBase64ID(6)
 	newPost := Post{
 		Id:        newId,
 		Text:      post.Text,
@@ -112,7 +111,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	rawResponse, _ := json.Marshal(postText)
 	_, err := rw.Write(rawResponse)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		http.Error(rw, "NoSuchId", http.StatusBadRequest)
 		return
 	}
 }
@@ -125,6 +124,10 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		sizepage = 10
 	} else {
 		if sizepage < 0 {
+			http.Error(rw, "Invalid size", http.StatusBadRequest)
+			return
+		}
+		if sizepage > 100 {
 			http.Error(rw, "Invalid size", http.StatusBadRequest)
 			return
 		}
@@ -142,10 +145,10 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	}
 	h.StorageMu.RUnlock()
 
-	if len(finalResponse) == 0 {
-		http.Error(rw, "NoUserPostsOrInvalidUserName", http.StatusBadRequest)
-		return
-	}
+	//if len(finalResponse) == 0 {
+	//	http.Error(rw, "NoUserPostsOrInvalidUserName", http.StatusBadRequest)
+	//	return
+	//}
 
 	sort.Slice(finalResponse, func(i, j int) bool {
 		layout := "2006-01-02T15:04:05.000Z"
@@ -153,7 +156,7 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		second, _ := time.Parse(layout, finalResponse[j].CreatedAt)
 		return first.After(second)
 	})
-	//Вернуть 10 постов и 1 pagetoken
+
 	rawResponse := PutAllPostsResponseData{}
 	startPage := 0
 	for i, value := range finalResponse {
