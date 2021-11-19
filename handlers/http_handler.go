@@ -68,6 +68,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		http.Error(rw, "problem with token", http.StatusUnauthorized)
 	}
 
+	rw.Header().Set("Content-Type", "application/json")
 	var post PutRequestData
 	err := json.NewDecoder(r.Body).Decode(&post)
 	if err != nil {
@@ -99,6 +100,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
 	Id := PostId{Postid: postId}
 	h.StorageMu.RLock()
@@ -111,12 +113,13 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	rawResponse, _ := json.Marshal(postText)
 	_, err := rw.Write(rawResponse)
 	if err != nil {
-		http.Error(rw, "NoSuchId", http.StatusBadRequest)
+		http.Error(rw, "Поста с указанным идентификатором не существует", http.StatusBadRequest)
 		return
 	}
 }
 
 func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 	pagetoken := PageToken{token: r.URL.Query().Get("page")}
 	size := r.URL.Query().Get("size")
 	sizepage, _ := strconv.Atoi(size)
