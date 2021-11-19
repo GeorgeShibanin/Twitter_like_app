@@ -42,13 +42,15 @@ type HTTPHandler struct {
 	StorageMu sync.RWMutex
 	Storage   map[PostId]Post
 }
-type PutResponseData struct {
-	Key Post `json:"Post" `
-}
+
 type PutAllPostsResponseData struct {
 	Posts    []Post `json:"posts"`
-	NextPage string `json:"nextpage"`
+	NextPage string `json:"nextPage"`
 }
+type PutAllPostsResponseNoNext struct {
+	Posts []Post `json:"posts"`
+}
+
 type PutRequestData struct {
 	Text string `json:"text"`
 }
@@ -167,20 +169,19 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		return
 	}
 	finalResponse = finalResponse[startPage:]
+	returnResponse, _ := json.Marshal("")
 	if len(finalResponse) >= sizepage+1 {
 		rawResponse.Posts = finalResponse[0:sizepage]
 		rawResponse.NextPage = finalResponse[sizepage].Id
+		returnResponse, _ = json.Marshal(rawResponse)
 	} else {
-		rawResponse.Posts = finalResponse
-		rawResponse.NextPage = ""
+		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponse})
 	}
 	if len(finalResponse) == 0 {
-		var nilPost []Post
-		rawResponse.Posts = nilPost
-		rawResponse.NextPage = ""
+		nullPost := make([]Post, 0)
+		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: nullPost})
 	}
 
-	returnResponse, _ := json.Marshal(rawResponse)
 	_, err := rw.Write(returnResponse)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
