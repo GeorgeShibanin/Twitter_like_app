@@ -9,8 +9,8 @@ services:
       MONGO_URL: 'mongodb://database:27017'
       MONGO_DBNAME: 'microblogAPI'
       SERVER_PORT: 8080
-      STORAGE_MODE: 'inmemory'
+      STORAGE_MODE: 'memory'
   database:
     image: mongo:latest
     ports:
-      - 27017:27017
+      - 27017
