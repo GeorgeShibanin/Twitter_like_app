@@ -14,19 +14,16 @@ import (
 func NewServer() *http.Server {
 	r := mux.NewRouter()
 
-	mongoUrl := os.Getenv("MONGO_URL")
-	//uri := "mongodb://localhost:27017/twitterPosts"
-	mongoStorage := mongostorage.NewStorage(mongoUrl)
-
 	handler := &handlers.HTTPHandler{
 		StorageOld: make(map[storage.PostId]storage.Post),
 	}
+
 	storageType := os.Getenv("STORAGE_MODE")
-	if storageType == "inmemory" {
-		handler = &handlers.HTTPHandler{
-			StorageOld: make(map[storage.PostId]storage.Post),
-		}
-	} else {
+
+	if storageType != "inmemory" {
+		mongoUrl := os.Getenv("MONGO_URL")
+		//uri := "mongodb://localhost:27017/twitterPosts"
+		mongoStorage := mongostorage.NewStorage(mongoUrl)
 		handler = &handlers.HTTPHandler{
 			Storage: mongoStorage,
 		}
@@ -38,10 +35,7 @@ func NewServer() *http.Server {
 	r.HandleFunc("/api/v1/users/{userId}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
 	r.HandleFunc("/maintenance/ping", handlers.HandlePing).Methods(http.MethodGet)
 
-	port := "8080"
-	if value, ok := os.LookupEnv("SERVER_PORT"); ok {
-		port = value
-	}
+	port := os.Getenv("SERVER_PORT")
 
 	return &http.Server{
 		Handler:      r,
