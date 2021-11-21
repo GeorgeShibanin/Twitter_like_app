@@ -26,10 +26,10 @@ type ISOTimestamp struct {
 }
 
 type Post struct {
-	Id        *string `json:"id"`
-	Text      string  `json:"text"`
-	AuthorId  string  `json:"authorId"`
-	CreatedAt string  `json:"createdAt"`
+	Id        string `json:"id"`
+	Text      string `json:"text"`
+	AuthorId  string `json:"authorId"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type PageToken struct {
@@ -38,6 +38,6 @@ type PageToken struct {
 
 type Storage interface {
 	PutPost(ctx context.Context, post string, userId string) (Post, error)
-	GetPostById(ctx context.Context, id PostId) (Post, error)
-	GetPostsByUser(ctx context.Context, id UserId) ([]Post, error)
+	GetPostById(ctx context.Context, id string) (Post, error)
+	GetPostsByUser(ctx context.Context, id string) ([]Post, error)
 }

@@ -57,11 +57,11 @@ func (s *storage) PutPost(ctx context.Context, post string, userId string) (stor
 	for attempt := 0; attempt < 5; attempt++ {
 		newId, _ := generator.GenerateBase64ID(6)
 		postId := storage2.PostId{Postid: newId}
-		newId = newId + "G"
+		//newId = newId + "G"
 		item := postItem{
 			Key: postId.Postid,
 			Post: storage2.Post{
-				Id:        &newId,
+				Id:        newId + "G",
 				Text:      post,
 				AuthorId:  userId,
 				CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
@@ -80,9 +80,9 @@ func (s *storage) PutPost(ctx context.Context, post string, userId string) (stor
 	return storage2.Post{}, fmt.Errorf("too much attempts - %w", storage2.ErrCollision)
 }
 
-func (s *storage) GetPostById(ctx context.Context, id storage2.PostId) (storage2.Post, error) {
+func (s *storage) GetPostById(ctx context.Context, id string) (storage2.Post, error) {
 	var result postItem
-	err := s.posts.FindOne(ctx, bson.M{"post.id": &id.Postid}).Decode(&result)
+	err := s.posts.FindOne(ctx, bson.M{"post.id": id}).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return storage2.Post{}, fmt.Errorf("no documents with key %v - %w", id, storage2.ErrNotFound)
@@ -92,9 +92,9 @@ func (s *storage) GetPostById(ctx context.Context, id storage2.PostId) (storage2
 	return result.Post, nil
 }
 
-func (s *storage) GetPostsByUser(ctx context.Context, id storage2.UserId) ([]storage2.Post, error) {
+func (s *storage) GetPostsByUser(ctx context.Context, id string) ([]storage2.Post, error) {
 	var result []storage2.Post
-	cursor, err := s.posts.Find(ctx, bson.M{"post.authorid": id.Userid})
+	cursor, err := s.posts.Find(ctx, bson.M{"post.authorid": id})
 
 	if err != nil {
 		return []storage2.Post{}, err
