@@ -25,14 +25,13 @@ type HTTPHandler struct {
 
 type PutAllPostsResponseData struct {
 	Posts    []storage.Post `json:"posts"`
-	NextPage string         `json:"nextPage"`
+	NextPage storage.PostId `json:"nextPage"`
 }
 type PutAllPostsResponseNoNext struct {
 	Posts []storage.Post `json:"posts"`
 }
-
 type PutRequestData struct {
-	Text string `json:"text"`
+	Text storage.Text `json:"text"`
 }
 
 func HandleRoot(rw http.ResponseWriter, r *http.Request) {
@@ -70,19 +69,16 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		newId, _ := generator.GenerateBase64ID(6)
 		//newId = newId + "G"
 		newPost = storage.Post{
-			Id:        newId + "G",
-			Text:      post.Text,
-			AuthorId:  tokenHeader,
-			CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
-		}
-		idPost := storage.PostId{
-			Postid: newPost.Id,
+			Id:        storage.PostId(newId + "G"),
+			Text:      storage.Text(post.Text),
+			AuthorId:  storage.UserId(tokenHeader),
+			CreatedAt: storage.Time(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 		h.StorageMu.Lock()
-		h.StorageOld[idPost] = newPost
+		h.StorageOld[newPost.Id] = newPost
 		h.StorageMu.Unlock()
 	} else {
-		newPost, err = h.Storage.PutPost(r.Context(), post.Text, tokenHeader)
+		newPost, err = h.Storage.PutPost(r.Context(), storage.Text(post.Text), storage.UserId(tokenHeader))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
@@ -101,7 +97,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
-	Id := storage.PostId{Postid: postId}
+	Id := storage.PostId(postId)
 
 	storageType := os.Getenv("STORAGE_MODE")
 	var postText storage.Post
@@ -117,7 +113,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		postText, err = h.Storage.GetPostById(r.Context(), postId)
+		postText, err = h.Storage.GetPostById(r.Context(), storage.PostId(postId))
 		if err != nil {
 			http.NotFound(rw, r)
 			return
@@ -160,13 +156,13 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
 		for _, value := range h.StorageOld { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
-			if value.AuthorId == Id {
+			if value.AuthorId == storage.UserId(Id) {
 				finalResponse = append(finalResponse, value)
 			}
 		}
 		h.StorageMu.RUnlock()
 	} else {
-		finalResponse, err = h.Storage.GetPostsByUser(r.Context(), Id)
+		finalResponse, err = h.Storage.GetPostsByUser(r.Context(), storage.UserId(Id))
 		if err != nil {
 			http.Error(rw, "YOU SUCK AT DB LOSER", http.StatusBadRequest)
 			return
@@ -176,15 +172,15 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 
 	sort.Slice(finalResponse, func(i, j int) bool {
 		layout := "2006-01-02T15:04:05.000Z"
-		first, _ := time.Parse(layout, finalResponse[i].CreatedAt)
-		second, _ := time.Parse(layout, finalResponse[j].CreatedAt)
+		first, _ := time.Parse(layout, string(finalResponse[i].CreatedAt))
+		second, _ := time.Parse(layout, string(finalResponse[j].CreatedAt))
 		return first.After(second)
 	})
 
 	rawResponse := PutAllPostsResponseData{}
 	startPage := 0
 	for i, value := range finalResponse {
-		if pagetoken.Token != "" && value.Id == pagetoken.Token {
+		if pagetoken.Token != "" && value.Id == storage.PostId(pagetoken.Token) {
 			startPage = i
 		}
 	}
