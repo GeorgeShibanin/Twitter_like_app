@@ -9,7 +9,7 @@ services:
       MONGO_URL: 'mongodb://database:27017'
       MONGO_DBNAME: 'twitterPosts'
       SERVER_PORT: 8080
-      STORAGE_MODE: 'inmemory'
+      STORAGE_MODE: 'memory'
 
   database:
     image: mongo:latest
