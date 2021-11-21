@@ -14,9 +14,7 @@ import (
 func NewServer() *http.Server {
 	r := mux.NewRouter()
 
-	handler := &handlers.HTTPHandler{
-		StorageOld: make(map[storage.PostId]storage.Post),
-	}
+	handler := &handlers.HTTPHandler{}
 
 	storageType := os.Getenv("STORAGE_MODE")
 	if storageType != "inmemory" {
@@ -25,6 +23,10 @@ func NewServer() *http.Server {
 		mongoStorage := mongostorage.NewStorage(mongoUrl)
 		handler = &handlers.HTTPHandler{
 			Storage: mongoStorage,
+		}
+	} else {
+		handler = &handlers.HTTPHandler{
+			StorageOld: make(map[storage.PostId]storage.Post),
 		}
 	}
 

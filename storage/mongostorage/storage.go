@@ -60,7 +60,7 @@ func (s *storage) PutPost(ctx context.Context, post storage2.Text, userId storag
 			Id:        storage2.PostId(newId + "G"),
 			Text:      post,
 			AuthorId:  userId,
-			CreatedAt: storage2.Time(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+			CreatedAt: storage2.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 
 		_, err := s.posts.InsertOne(ctx, item)

@@ -4,16 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 )
-
-type ISOTimestamp struct {
-	Time time.Time
-}
-
-type PageToken struct {
-	Token string
-}
 
 var (
 	StorageError = errors.New("storage")
@@ -24,13 +15,14 @@ var (
 type Text string
 type UserId string
 type PostId string
-type Time string
+type ISOTimestamp string
+type PageToken string
 
 type Post struct {
-	Id        PostId `bson:"_id"`
-	Text      Text   `bson:"text"`
-	AuthorId  UserId `bson:"authorid"`
-	CreatedAt Time   `bson:"createdat"`
+	Id        PostId       `bson:"_id"`
+	Text      Text         `bson:"text"`
+	AuthorId  UserId       `bson:"authorid"`
+	CreatedAt ISOTimestamp `bson:"createdat"`
 }
 
 type Storage interface {

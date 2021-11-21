@@ -70,15 +70,15 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		//newId = newId + "G"
 		newPost = storage.Post{
 			Id:        storage.PostId(newId + "G"),
-			Text:      storage.Text(post.Text),
+			Text:      post.Text,
 			AuthorId:  storage.UserId(tokenHeader),
-			CreatedAt: storage.Time(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+			CreatedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 		h.StorageMu.Lock()
 		h.StorageOld[newPost.Id] = newPost
 		h.StorageMu.Unlock()
 	} else {
-		newPost, err = h.Storage.PutPost(r.Context(), storage.Text(post.Text), storage.UserId(tokenHeader))
+		newPost, err = h.Storage.PutPost(r.Context(), post.Text, storage.UserId(tokenHeader))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
@@ -130,7 +130,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	pagetoken := storage.PageToken{Token: r.URL.Query().Get("page")}
+	pagetoken := storage.PageToken(r.URL.Query().Get("page"))
 	size := r.URL.Query().Get("size")
 	sizepage, _ := strconv.Atoi(size)
 	if size == "" {
@@ -180,11 +180,11 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	rawResponse := PutAllPostsResponseData{}
 	startPage := 0
 	for i, value := range finalResponse {
-		if pagetoken.Token != "" && value.Id == storage.PostId(pagetoken.Token) {
+		if pagetoken != "" && value.Id == storage.PostId(pagetoken) {
 			startPage = i
 		}
 	}
-	if pagetoken.Token != "" && startPage == 0 {
+	if pagetoken != "" && startPage == 0 {
 		http.Error(rw, "InvalidPageToken", http.StatusBadRequest)
 		return
 	}
