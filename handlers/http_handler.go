@@ -69,7 +69,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	if storageType == "inmemory" {
 		newId, _ := generator.GenerateBase64ID(6)
 		newPost = storage.Post{
-			Id:        newId,
+			Id:        newId + "G",
 			Text:      post.Text,
 			AuthorId:  tokenHeader,
 			CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
