@@ -57,10 +57,11 @@ func (s *storage) PutPost(ctx context.Context, post string, userId string) (stor
 	for attempt := 0; attempt < 5; attempt++ {
 		newId, _ := generator.GenerateBase64ID(6)
 		postId := storage2.PostId{Postid: newId}
+		newId = newId + "G"
 		item := postItem{
 			Key: postId.Postid,
 			Post: storage2.Post{
-				Id:        newId + "G",
+				Id:        &newId,
 				Text:      post,
 				AuthorId:  userId,
 				CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
@@ -81,7 +82,7 @@ func (s *storage) PutPost(ctx context.Context, post string, userId string) (stor
 
 func (s *storage) GetPostById(ctx context.Context, id storage2.PostId) (storage2.Post, error) {
 	var result postItem
-	err := s.posts.FindOne(ctx, bson.M{"post.id": id.Postid}).Decode(&result)
+	err := s.posts.FindOne(ctx, bson.M{"post.id": &id.Postid}).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return storage2.Post{}, fmt.Errorf("no documents with key %v - %w", id, storage2.ErrNotFound)

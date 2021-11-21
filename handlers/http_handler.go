@@ -68,14 +68,15 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 	if storageType == "inmemory" {
 		newId, _ := generator.GenerateBase64ID(6)
+		newId = newId + "G"
 		newPost = storage.Post{
-			Id:        newId + "G",
+			Id:        &newId,
 			Text:      post.Text,
 			AuthorId:  tokenHeader,
 			CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		}
 		idPost := storage.PostId{
-			Postid: newPost.Id,
+			Postid: *newPost.Id,
 		}
 		h.StorageMu.Lock()
 		h.StorageOld[idPost] = newPost
@@ -184,7 +185,7 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	rawResponse := PutAllPostsResponseData{}
 	startPage := 0
 	for i, value := range finalResponse {
-		if pagetoken.Token != "" && value.Id == pagetoken.Token {
+		if pagetoken.Token != "" && *value.Id == pagetoken.Token {
 			startPage = i
 		}
 	}
@@ -196,7 +197,7 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	returnResponse, _ := json.Marshal("")
 	if len(finalResponse) >= sizepage+1 {
 		rawResponse.Posts = finalResponse[0:sizepage]
-		rawResponse.NextPage = finalResponse[sizepage].Id
+		rawResponse.NextPage = *finalResponse[sizepage].Id
 		returnResponse, _ = json.Marshal(rawResponse)
 	} else {
 		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponse})
