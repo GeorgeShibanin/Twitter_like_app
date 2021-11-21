@@ -14,7 +14,7 @@ import (
 	storage2 "twitterLikeHW/storage"
 )
 
-var dbName = os.Getenv("MONGO_DBNAME")
+//var dbName = os.Getenv("MONGO_DBNAME")
 
 //const dbName = "twitterPosts"
 const collName = "posts"
@@ -30,7 +30,7 @@ func NewStorage(mongoURL string) *storage {
 		panic(err)
 	}
 
-	collection := client.Database(dbName).Collection(collName)
+	collection := client.Database(os.Getenv("MONGO_DBNAME")).Collection(collName)
 
 	ensureIndexes(ctx, collection)
 

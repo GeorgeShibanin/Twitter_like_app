@@ -20,6 +20,12 @@ func NewServer() *http.Server {
 
 	storageType := os.Getenv("STORAGE_MODE")
 
+	mongoUrl := os.Getenv("MONGO_URL")
+	//mongoUrl := "mongodb://localhost:27017/twitterPosts"
+	mongoStorage := mongostorage.NewStorage(mongoUrl)
+	handler = &handlers.HTTPHandler{
+		Storage: mongoStorage,
+	}
 	if storageType != "inmemory" {
 		mongoUrl := os.Getenv("MONGO_URL") + "/" + os.Getenv("MONGO_DBNAME")
 		//mongoUrl := "mongodb://localhost:27017/twitterPosts"
