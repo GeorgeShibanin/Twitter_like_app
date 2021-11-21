@@ -22,7 +22,7 @@ func NewServer() *http.Server {
 
 	if storageType != "inmemory" {
 		mongoUrl := os.Getenv("MONGO_URL")
-		//uri := "mongodb://localhost:27017/twitterPosts"
+		//mongoUrl := "mongodb://localhost:27017/twitterPosts"
 		mongoStorage := mongostorage.NewStorage(mongoUrl)
 		handler = &handlers.HTTPHandler{
 			Storage: mongoStorage,
@@ -36,7 +36,6 @@ func NewServer() *http.Server {
 	r.HandleFunc("/maintenance/ping", handlers.HandlePing).Methods(http.MethodGet)
 
 	port := os.Getenv("SERVER_PORT")
-
 	return &http.Server{
 		Handler:      r,
 		Addr:         ":" + port,

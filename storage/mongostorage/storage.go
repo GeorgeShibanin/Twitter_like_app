@@ -16,6 +16,7 @@ import (
 
 var dbName = os.Getenv("MONGO_DBNAME")
 
+//const dbName = "twitterPosts"
 const collName = "posts"
 
 type storage struct {
@@ -59,7 +60,7 @@ func (s *storage) PutPost(ctx context.Context, post string, userId string) (stor
 		item := postItem{
 			Key: postId.Postid,
 			Post: storage2.Post{
-				Id:        newId,
+				Id:        newId + "G",
 				Text:      post,
 				AuthorId:  userId,
 				CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
@@ -80,7 +81,7 @@ func (s *storage) PutPost(ctx context.Context, post string, userId string) (stor
 
 func (s *storage) GetPostById(ctx context.Context, id storage2.PostId) (storage2.Post, error) {
 	var result postItem
-	err := s.posts.FindOne(ctx, bson.M{"_id": id.Postid}).Decode(&result)
+	err := s.posts.FindOne(ctx, bson.M{"post.id": id.Postid}).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return storage2.Post{}, fmt.Errorf("no documents with key %v - %w", id, storage2.ErrNotFound)
@@ -97,13 +98,9 @@ func (s *storage) GetPostsByUser(ctx context.Context, id storage2.UserId) ([]sto
 	if err != nil {
 		return []storage2.Post{}, err
 	}
-	/*
-		if err = cursor.All(ctx, &response); err != nil {
-			return []storage2.Post{}, err
-		}*/
 
 	for cursor.Next(ctx) {
-		var elem postItem
+		var elem postItemAll
 		err = cursor.Decode(&elem)
 		result = append(result, elem.Post)
 	}
@@ -112,6 +109,11 @@ func (s *storage) GetPostsByUser(ctx context.Context, id storage2.UserId) ([]sto
 }
 
 type postItem struct {
+	Key  string        `bson:"_id"`
+	Post storage2.Post `bson:"post"`
+}
+
+type postItemAll struct {
 	Key  string        `bson:"_id"`
 	Post storage2.Post `bson:"post"`
 }
