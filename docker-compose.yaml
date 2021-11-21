@@ -6,10 +6,10 @@ services:
     ports:
       - 8080:8080
     environment:
-      MONGO_URL: 'mongodb://localhost:27017'
+      MONGO_URL: 'mongodb://database:27017'
       MONGO_DBNAME: 'twitterPosts'
 
   database:
-    image: mongo
+    image: mongo:latest
     ports:
       - 27017:27017

@@ -8,7 +8,7 @@ COPY . /go/src/app/
 RUN go mod tidy
 RUN go build /go/src/app/main.go
 
-ENV SERVER_PORT 9091
+ENV SERVER_PORT 8080
 EXPOSE $SERVER_PORT
 
 CMD ["/go/src/app/main"]
