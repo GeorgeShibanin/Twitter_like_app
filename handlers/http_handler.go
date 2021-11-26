@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 	"os"
 	"regexp"
@@ -12,6 +13,8 @@ import (
 	"sync"
 	"time"
 	"twitterLikeHW/generator"
+
+	//"twitterLikeHW/generator"
 	"twitterLikeHW/storage"
 )
 
@@ -20,15 +23,22 @@ var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
 	Storage    storage.Storage
-	StorageOld map[storage.PostId]storage.Post
+	StorageOld map[storage.PostId]storage.PostOld
 }
 
 type PutAllPostsResponseData struct {
-	Posts    []storage.Post `json:"posts"`
-	NextPage storage.PostId `json:"nextPage"`
+	Posts    []storage.Post     `json:"posts"`
+	NextPage primitive.ObjectID `json:"nextPage"`
+}
+type PutAllPostsResponseDataOld struct {
+	Posts    []storage.PostOld `json:"posts"`
+	NextPage storage.PostId    `json:"nextPage"`
 }
 type PutAllPostsResponseNoNext struct {
 	Posts []storage.Post `json:"posts"`
+}
+type PutAllPostsResponseNoNextOld struct {
+	Posts []storage.PostOld `json:"posts"`
 }
 type PutRequestData struct {
 	Text storage.Text `json:"text"`
@@ -63,29 +73,31 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	}
 
 	storageType := os.Getenv("STORAGE_MODE")
+	var newPostOld storage.PostOld
 	var newPost storage.Post
+	var rawResponse []byte
 
 	if storageType == "inmemory" {
 		newId, _ := generator.GenerateBase64ID(6)
-		//newId = newId + "G"
-		newPost = storage.Post{
-			Id:        storage.PostId(newId + "G"),
+		newPostOld = storage.PostOld{
+			Id:        storage.PostId(newId),
 			Text:      post.Text,
 			AuthorId:  storage.UserId(tokenHeader),
 			CreatedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 		h.StorageMu.Lock()
-		h.StorageOld[newPost.Id] = newPost
+		h.StorageOld[newPostOld.Id] = newPostOld
 		h.StorageMu.Unlock()
+		rawResponse, _ = json.Marshal(newPostOld)
 	} else {
 		newPost, err = h.Storage.PutPost(r.Context(), post.Text, storage.UserId(tokenHeader))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
+		rawResponse, _ = json.Marshal(newPost)
 	}
 
-	rawResponse, _ := json.Marshal(newPost)
 	_, err = rw.Write(rawResponse)
 
 	if err != nil {
@@ -100,27 +112,29 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	Id := storage.PostId(postId)
 
 	storageType := os.Getenv("STORAGE_MODE")
+	var postTextOld storage.PostOld
 	var postText storage.Post
 	var err error
 	var found bool
+	var rawResponse []byte
 
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
-		postText, found = h.StorageOld[Id]
+		postTextOld, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
 			return
 		}
+		rawResponse, _ = json.Marshal(postTextOld)
 	} else {
-		postText, err = h.Storage.GetPostById(r.Context(), storage.PostId(postId))
+		postText, err = h.Storage.GetPostById(r.Context(), Id)
 		if err != nil {
 			http.NotFound(rw, r)
 			return
 		}
+		rawResponse, _ = json.Marshal(postText)
 	}
-
-	rawResponse, _ := json.Marshal(postText)
 	_, err = rw.Write(rawResponse)
 	if err != nil {
 		http.Error(rw, "Поста с указанным идентификатором не существует", http.StatusBadRequest)
@@ -130,7 +144,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	pagetoken := storage.PageToken(r.URL.Query().Get("page"))
+	pagetoken := r.URL.Query().Get("page")
 	size := r.URL.Query().Get("size")
 	sizepage, _ := strconv.Atoi(size)
 	if size == "" {
@@ -151,59 +165,92 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 
 	storageType := os.Getenv("STORAGE_MODE")
 	var finalResponse []storage.Post
+	var finalResponseOld []storage.PostOld
+	rawResponse := PutAllPostsResponseData{}
+	rawResponseOld := PutAllPostsResponseDataOld{}
 	var err error
 
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
 		for _, value := range h.StorageOld { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
 			if value.AuthorId == storage.UserId(Id) {
-				finalResponse = append(finalResponse, value)
+				finalResponseOld = append(finalResponseOld, value)
 			}
 		}
 		h.StorageMu.RUnlock()
+
+		sort.Slice(finalResponseOld, func(i, j int) bool {
+			layout := "2006-01-02T15:04:05.000Z"
+			first, _ := time.Parse(layout, string(finalResponseOld[i].CreatedAt))
+			second, _ := time.Parse(layout, string(finalResponseOld[j].CreatedAt))
+			return first.After(second)
+		})
+
+		startPage := 0
+		for i, value := range finalResponseOld {
+			if pagetoken != "" && value.Id == storage.PostId(pagetoken) {
+				startPage = i
+			}
+		}
+		if pagetoken != "" && startPage == 0 {
+			http.Error(rw, "InvalidPageToken", http.StatusBadRequest)
+			return
+		}
+		finalResponseOld = finalResponseOld[startPage:]
+		returnResponseOld, _ := json.Marshal("")
+		if len(finalResponseOld) >= sizepage+1 {
+			rawResponseOld.Posts = finalResponseOld[0:sizepage]
+			rawResponseOld.NextPage = finalResponseOld[sizepage].Id
+			returnResponseOld, _ = json.Marshal(rawResponseOld)
+		} else {
+			returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNextOld{Posts: finalResponseOld})
+		}
+		if len(finalResponseOld) == 0 {
+			returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNextOld{Posts: make([]storage.PostOld, 0)})
+		}
+		_, err = rw.Write(returnResponseOld)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 	} else {
+
 		finalResponse, err = h.Storage.GetPostsByUser(r.Context(), storage.UserId(Id))
 		if err != nil {
 			http.Error(rw, "YOU SUCK AT DB LOSER", http.StatusBadRequest)
 			return
 		}
 
-	}
-
-	sort.Slice(finalResponse, func(i, j int) bool {
-		layout := "2006-01-02T15:04:05.000Z"
-		first, _ := time.Parse(layout, string(finalResponse[i].CreatedAt))
-		second, _ := time.Parse(layout, string(finalResponse[j].CreatedAt))
-		return first.After(second)
-	})
-
-	rawResponse := PutAllPostsResponseData{}
-	startPage := 0
-	for i, value := range finalResponse {
-		if pagetoken != "" && value.Id == storage.PostId(pagetoken) {
-			startPage = i
+		startPage := 0
+		for i, value := range finalResponse {
+			valueId, _ := primitive.ObjectIDFromHex(pagetoken)
+			if pagetoken != "" && value.Id == valueId {
+				startPage = i
+			}
+		}
+		if pagetoken != "" && startPage == 0 {
+			http.Error(rw, "InvalidPageToken", http.StatusBadRequest)
+			return
+		}
+		finalResponse = finalResponse[startPage:]
+		returnResponse, _ := json.Marshal("")
+		if len(finalResponse) >= sizepage+1 {
+			rawResponse.Posts = finalResponse[0:sizepage]
+			nextPage := finalResponse[sizepage].Id
+			rawResponse.NextPage = nextPage
+			returnResponse, _ = json.Marshal(rawResponse)
+		} else {
+			returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponse})
+		}
+		if len(finalResponse) == 0 {
+			returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: make([]storage.Post, 0)})
+		}
+		_, err = rw.Write(returnResponse)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
 		}
 	}
-	if pagetoken != "" && startPage == 0 {
-		http.Error(rw, "InvalidPageToken", http.StatusBadRequest)
-		return
-	}
-	finalResponse = finalResponse[startPage:]
-	returnResponse, _ := json.Marshal("")
-	if len(finalResponse) >= sizepage+1 {
-		rawResponse.Posts = finalResponse[0:sizepage]
-		rawResponse.NextPage = finalResponse[sizepage].Id
-		returnResponse, _ = json.Marshal(rawResponse)
-	} else {
-		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponse})
-	}
-	if len(finalResponse) == 0 {
-		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: make([]storage.Post, 0)})
-	}
 
-	_, err = rw.Write(returnResponse)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
-	}
 }

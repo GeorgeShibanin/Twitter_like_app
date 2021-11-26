@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -19,10 +20,17 @@ type ISOTimestamp string
 type PageToken string
 
 type Post struct {
-	Id        PostId       `bson:"_id"`
-	Text      Text         `bson:"text"`
-	AuthorId  UserId       `bson:"authorid"`
-	CreatedAt ISOTimestamp `bson:"createdat"`
+	Id        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Text      Text               `json:"text" bson:"text"`
+	AuthorId  UserId             `json:"authorId" bson:"authorId"`
+	CreatedAt ISOTimestamp       `json:"createdAt" bson:"createdAt"`
+}
+
+type PostOld struct {
+	Id        PostId       `json:"id"`
+	Text      Text         `json:"text"`
+	AuthorId  UserId       `json:"authorId"`
+	CreatedAt ISOTimestamp `json:"createdAt"`
 }
 
 type Storage interface {
