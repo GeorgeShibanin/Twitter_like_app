@@ -20,7 +20,7 @@ type ISOTimestamp string
 type PageToken string
 
 type Post struct {
-	Id        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Id        primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	Text      Text               `json:"text" bson:"text"`
 	AuthorId  UserId             `json:"authorId" bson:"authorId"`
 	CreatedAt ISOTimestamp       `json:"createdAt" bson:"createdAt"`
