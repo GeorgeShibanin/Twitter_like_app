@@ -19,7 +19,7 @@ func NewServer() *http.Server {
 	handler := &handlers.HTTPHandler{}
 
 	storageType := os.Getenv("STORAGE_MODE")
-	//storageType := "mongo"
+	//storageType := "inmemory"
 
 	if storageType == "mongo" {
 		mongoUrl := os.Getenv("MONGO_URL")

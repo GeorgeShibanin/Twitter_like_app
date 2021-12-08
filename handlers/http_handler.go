@@ -71,7 +71,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	}
 
 	storageType := os.Getenv("STORAGE_MODE")
-	//storageType := "mongo"
+	//storageType := "inmemory"
 
 	//var newPostOld storage.PostOld
 	//var newPostMongo storage.Post
@@ -113,7 +113,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	Id := storage.PostId(postId)
 
 	storageType := os.Getenv("STORAGE_MODE")
-	//storageType := "mongo"
+	//storageType := "inmemory"
 
 	var currentPost storage.Post
 	var err error
@@ -122,22 +122,21 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
-		valueId, _ := primitive.ObjectIDFromHex(string(Id))
+		valueId, _ := primitive.ObjectIDFromHex(postId)
 		currentPost, found = h.StorageOld[valueId]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
 			return
 		}
-		rawResponse, _ = json.Marshal(currentPost)
 	} else {
 		currentPost, err = h.Storage.GetPostById(r.Context(), Id)
 		if err != nil {
 			http.NotFound(rw, r)
 			return
 		}
-		rawResponse, _ = json.Marshal(currentPost)
 	}
+	rawResponse, _ = json.Marshal(currentPost)
 	_, err = rw.Write(rawResponse)
 	if err != nil {
 		http.Error(rw, "Поста с указанным идентификатором не существует", http.StatusBadRequest)
@@ -160,8 +159,9 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 	rw.Header().Set("Content-Type", "application/json")
+
 	storageType := os.Getenv("STORAGE_MODE")
-	//storageType := "mongo"
+	//storageType := "inmemory"
 
 	var found bool
 	//var updatePostOld storage.PostOld
@@ -235,7 +235,7 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	Id := strings.TrimPrefix(userId, "/api/v1/users/")
 
 	storageType := os.Getenv("STORAGE_MODE")
-	//storageType := "mongo"
+	//storageType := "inmemory"
 
 	var finalResponse []storage.Post
 	rawResponse := PutAllPostsResponseData{}
@@ -256,7 +256,7 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 			second, _ := time.Parse(layout, string(finalResponse[j].CreatedAt))
 			return first.After(second)
 		})
-	} else if storageType == "mongo" {
+	} else {
 
 		finalResponse, err = h.Storage.GetPostsByUser(r.Context(), storage.UserId(Id))
 		if err != nil {
