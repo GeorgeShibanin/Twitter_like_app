@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"net/http"
 	"os"
@@ -30,7 +29,7 @@ func NewServer() *http.Server {
 		}
 	} else if storageType == "inmemory" {
 		handler = &handlers.HTTPHandler{
-			StorageOld: make(map[primitive.ObjectID]storage.Post),
+			StorageOld: make(map[storage.PostId]storage.Post),
 		}
 	} else if storageType == "cached" {
 		mongoUrl := os.Getenv("MONGO_URL")

@@ -26,12 +26,12 @@ var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
 	Storage    storage.Storage
-	StorageOld map[primitive.ObjectID]storage.Post
+	StorageOld map[storage.PostId]storage.Post
 }
 
 type PutAllPostsResponseData struct {
-	Posts    []storage.Post     `json:"posts"`
-	NextPage primitive.ObjectID `json:"nextPage"`
+	Posts    []storage.Post `json:"posts"`
+	NextPage storage.PostId `json:"nextPage"`
 }
 
 type PutAllPostsResponseNoNext struct {
@@ -80,7 +80,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 	if storageType == "inmemory" {
 		newPost = storage.Post{
-			Id:             primitive.NewObjectID(),
+			Id:             storage.PostId(primitive.NewObjectID().Hex() + "G"),
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
@@ -122,8 +122,8 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
-		valueId, _ := primitive.ObjectIDFromHex(postId)
-		currentPost, found = h.StorageOld[valueId]
+		//valueId, _ := primitive.ObjectIDFromHex(postId)
+		currentPost, found = h.StorageOld[storage.PostId(postId)]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -169,8 +169,8 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
-		valueId, _ := primitive.ObjectIDFromHex(string(Id))
-		updatePost, found = h.StorageOld[valueId]
+		//valueId, _ := primitive.ObjectIDFromHex(string(Id))
+		updatePost, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -267,8 +267,8 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 
 	startPage := 0
 	for i, value := range finalResponse {
-		valueId, _ := primitive.ObjectIDFromHex(pagetoken)
-		if pagetoken != "" && value.Id == valueId {
+		//valueId, _ := primitive.ObjectIDFromHex(pagetoken)
+		if pagetoken != "" && value.Id == storage.PostId(pagetoken) {
 			startPage = i
 		}
 	}

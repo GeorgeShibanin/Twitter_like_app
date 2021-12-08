@@ -30,7 +30,7 @@ func (s *Storage) PutPost(ctx context.Context, post storage.Text, userId storage
 		return postPut, err
 	}
 
-	fullKey := s.getFullKey(storage.PostId(postPut.Id.Hex()))
+	fullKey := s.getFullKey(postPut.Id)
 	bytes, _ := json.Marshal(postPut)
 	response := s.client.HSetNX(ctx, fullKey, "test", bytes)
 
