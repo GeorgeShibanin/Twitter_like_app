@@ -183,7 +183,7 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		updatePost.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		updatePost.Text = updatePostText.Text
 		h.StorageMu.Lock()
-		h.StorageOld[updatePost.Id] = updatePost
+		h.StorageOld[Id] = updatePost
 		h.StorageMu.Unlock()
 
 	} else {
