@@ -84,7 +84,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-			LastModifiedAt: "",
+			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 		h.StorageMu.Lock()
 		h.StorageOld[newPost.Id] = newPost
