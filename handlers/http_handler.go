@@ -123,7 +123,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
 		//valueId, _ := primitive.ObjectIDFromHex(postId)
-		currentPost, found = h.StorageOld[storage.PostId(postId)]
+		currentPost, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -182,8 +182,15 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		}
 		updatePost.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		updatePost.Text = updatePostText.Text
+		newPost := storage.Post{
+			Id:             Id,
+			Text:           updatePostText.Text,
+			AuthorId:       storage.UserId(tokenHeader),
+			CreatedAt:      updatePost.CreatedAt,
+			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+		}
 		h.StorageMu.Lock()
-		h.StorageOld[Id] = updatePost
+		h.StorageOld[Id] = newPost
 		h.StorageMu.Unlock()
 
 	} else {
@@ -277,18 +284,18 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		return
 	}
 	finalResponse = finalResponse[startPage:]
-	returnResponseOld, _ := json.Marshal("")
+	returnResponse, _ := json.Marshal("")
 	if len(finalResponse) >= sizepage+1 {
 		rawResponse.Posts = finalResponse[0:sizepage]
 		rawResponse.NextPage = finalResponse[sizepage].Id
-		returnResponseOld, _ = json.Marshal(rawResponse)
+		returnResponse, _ = json.Marshal(rawResponse)
 	} else {
-		returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponse})
+		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponse})
 	}
 	if len(finalResponse) == 0 {
-		returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: make([]storage.Post, 0)})
+		returnResponse, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: make([]storage.Post, 0)})
 	}
-	_, err = rw.Write(returnResponseOld)
+	_, err = rw.Write(returnResponse)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
