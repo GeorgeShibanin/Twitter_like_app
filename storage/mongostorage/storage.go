@@ -121,7 +121,7 @@ func (s *storage) PatchPostById(ctx context.Context, id storage2.PostId, post st
 
 func (s *storage) GetPostsByUser(ctx context.Context, id storage2.UserId) ([]storage2.Post, error) {
 	var result []storage2.Post
-	opt := options.Find().SetSort(bson.D{{"lastModifiedAt", -1}})
+	opt := options.Find().SetSort(bson.D{{"_id", -1}})
 	cursor, err := s.posts.Find(ctx, bson.M{"authorId": id}, opt)
 	if err != nil {
 		return []storage2.Post{}, err
