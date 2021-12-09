@@ -151,15 +151,13 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) {
+	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
+	Id := storage.PostId(postId)
 	tokenHeader := r.Header.Get("System-Design-User-Id")
 	if tokenHeader == "" || !authorIdPattern.MatchString(tokenHeader) {
 		http.Error(rw, "problem with token", http.StatusUnauthorized)
 		return
 	}
-	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
-	Id := storage.PostId(postId)
-
-	rw.Header().Set("Content-Type", "application/json")
 
 	var updatePostText PutRequestData
 	err := json.NewDecoder(r.Body).Decode(&updatePostText)
@@ -167,6 +165,7 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
+	rw.Header().Set("Content-Type", "application/json")
 
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
@@ -190,15 +189,15 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		}
 		updatePostOld.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		updatePostOld.Text = updatePostText.Text
-		/*newPost := storage.PostOld{
+		newPost := storage.PostOld{
 			Id:             Id,
 			Text:           updatePostText.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      updatePostOld.CreatedAt,
 			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-		}*/
+		}
 		h.StorageMu.Lock()
-		h.StorageOld[Id] = updatePostOld
+		h.StorageOld[Id] = newPost
 		h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(updatePostOld)
 	} else {
