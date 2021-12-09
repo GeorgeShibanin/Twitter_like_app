@@ -244,8 +244,8 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		}
 	}
 
-	userId := strings.TrimSuffix(r.URL.Path, "/posts")
-	Id := strings.TrimPrefix(userId, "/api/v1/users/")
+	userId := strings.TrimPrefix(r.URL.Path, "/api/v1/users/")
+	Id := strings.TrimSuffix(userId, "/posts")
 
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
