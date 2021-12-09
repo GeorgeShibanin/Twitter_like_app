@@ -29,7 +29,7 @@ func NewServer() *http.Server {
 		}
 	} else if storageType == "inmemory" {
 		handler = &handlers.HTTPHandler{
-			StorageOld: make(map[storage.PostId]storage.Post),
+			StorageOld: make(map[storage.PostId]storage.PostOld),
 		}
 	} else if storageType == "cached" {
 		mongoUrl := os.Getenv("MONGO_URL")
@@ -48,8 +48,8 @@ func NewServer() *http.Server {
 	r.HandleFunc("/api/v1/users/{userId}/posts", handler.HandleGetUserPosts).Methods(http.MethodGet)
 	r.HandleFunc("/maintenance/ping", handlers.HandlePing).Methods(http.MethodGet)
 
-	//port := os.Getenv("SERVER_PORT")
-	port := "8080"
+	port := os.Getenv("SERVER_PORT")
+	//port := "8080"
 	return &http.Server{
 		Handler:      r,
 		Addr:         ":" + port,
