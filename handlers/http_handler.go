@@ -15,9 +15,7 @@ import (
 	_ "strings"
 	"sync"
 	"time"
-	"twitterLikeHW/generator"
 	_ "twitterLikeHW/generator"
-
 	//"twitterLikeHW/generator"
 	"twitterLikeHW/storage"
 )
@@ -26,8 +24,8 @@ var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
-	Storage    storage.Storage
 	StorageOld map[storage.PostId]storage.PostOld
+	Storage    storage.Storage
 }
 
 type PutAllPostsResponseData struct {
@@ -38,14 +36,12 @@ type PutAllPostsResponseDataOld struct {
 	Posts    []storage.PostOld `json:"posts"`
 	NextPage storage.PostId    `json:"nextPage"`
 }
-
 type PutAllPostsResponseNoNext struct {
 	Posts []storage.Post `json:"posts"`
 }
 type PutAllPostsResponseNoNextOld struct {
 	Posts []storage.PostOld `json:"posts"`
 }
-
 type PutRequestData struct {
 	Text storage.Text `json:"text"`
 }
@@ -86,9 +82,9 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		newId, _ := generator.GenerateBase64ID(6)
+
 		newPostOld = storage.PostOld{
-			Id:             storage.PostId(newId) + "G",
+			Id:             storage.PostId(primitive.NewObjectID().Hex() + "G"),
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
@@ -123,30 +119,30 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
-	var currentPost storage.Post
-	var currentPostOld storage.PostOld
+	var postTextOld storage.PostOld
+	var postText storage.Post
 	var err error
 	var found bool
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
+
 		h.StorageMu.RLock()
-		currentPostOld, found = h.StorageOld[Id]
+		postTextOld, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
 			return
 		}
-		rawResponse, _ = json.Marshal(currentPostOld)
+		rawResponse, _ = json.Marshal(postTextOld)
 	} else {
-		currentPost, err = h.Storage.GetPostById(r.Context(), Id)
+		postText, err = h.Storage.GetPostById(r.Context(), Id)
 		if err != nil {
 			http.NotFound(rw, r)
 			return
 		}
-		rawResponse, _ = json.Marshal(currentPost)
+		rawResponse, _ = json.Marshal(postText)
 	}
-
 	_, err = rw.Write(rawResponse)
 	if err != nil {
 		http.Error(rw, "Поста с указанным идентификатором не существует", http.StatusBadRequest)
@@ -155,20 +151,22 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) {
-	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
-	Id := storage.PostId(postId)
 	tokenHeader := r.Header.Get("System-Design-User-Id")
 	if tokenHeader == "" || !authorIdPattern.MatchString(tokenHeader) {
 		http.Error(rw, "problem with token", http.StatusUnauthorized)
 		return
 	}
+	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
+	Id := storage.PostId(postId)
+
+	rw.Header().Set("Content-Type", "application/json")
+
 	var updatePostText PutRequestData
 	err := json.NewDecoder(r.Body).Decode(&updatePostText)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	rw.Header().Set("Content-Type", "application/json")
 
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
@@ -192,15 +190,15 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		}
 		updatePostOld.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		updatePostOld.Text = updatePostText.Text
-		newPost := storage.PostOld{
+		/*newPost := storage.PostOld{
 			Id:             Id,
 			Text:           updatePostText.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      updatePostOld.CreatedAt,
 			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-		}
+		}*/
 		h.StorageMu.Lock()
-		h.StorageOld[Id] = newPost
+		h.StorageOld[Id] = updatePostOld
 		h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(updatePostOld)
 	} else {

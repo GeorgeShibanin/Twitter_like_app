@@ -38,7 +38,7 @@ func (s *Storage) PutPost(ctx context.Context, post storage.Text, userId storage
 		//log.Printf("Failed to save key %s to redis", fullKey)
 		return postPut, err
 	}
-	s.client.Expire(ctx, fullKey, time.Hour)
+	s.client.Expire(ctx, fullKey, 5*time.Minute)
 	return postPut, nil
 }
 
@@ -58,19 +58,40 @@ func (s *Storage) GetPostById(ctx context.Context, id storage.PostId) (storage.P
 		}
 		return result, nil
 	}
-	log.Printf("Loading url by key %s from persistent storage", id)
+	log.Printf("Loading post by key %s from persistent storage", id)
 	postGet, err := s.persistentStorage.GetPostById(ctx, id)
 	if err != nil {
 		return postGet, err
 	}
+	fullKey := s.getFullKey(storage.PostId(postGet.Id.Hex()))
+	bytes, _ := json.Marshal(postGet)
+	response := s.client.HSetNX(ctx, fullKey, "test", bytes)
+
+	if err := response.Err(); err != nil {
+		//log.Printf("Failed to save key %s to redis", fullKey)
+		return postGet, err
+	}
+	s.client.Expire(ctx, fullKey, 5*time.Minute)
 	return postGet, nil
 }
 
 func (s *Storage) PatchPostById(ctx context.Context, id storage.PostId, post storage.Text, userId storage.UserId) (storage.Post, error) {
+	fullKey := s.getFullKey(id)
+	s.client.Del(ctx, fullKey)
 	result, err := s.persistentStorage.PatchPostById(ctx, id, post, userId)
 	if err != nil {
 		return result, err
 	}
+	//fullKey := s.getFullKey(storage.PostId(result.Id.Hex()))
+	bytes, _ := json.Marshal(result)
+	response := s.client.HSetNX(ctx, fullKey, "test", bytes)
+
+	if err := response.Err(); err != nil {
+		log.Printf("Failed to save key %s to redis", fullKey)
+		return result, err
+	}
+	s.client.Expire(ctx, fullKey, 5*time.Minute)
+
 	return result, nil
 }
 
@@ -79,6 +100,7 @@ func (s *Storage) GetPostsByUser(ctx context.Context, id storage.UserId) ([]stor
 	if err != nil {
 		return result, err
 	}
+
 	return result, nil
 }
 
