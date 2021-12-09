@@ -15,6 +15,7 @@ import (
 	_ "strings"
 	"sync"
 	"time"
+	"twitterLikeHW/generator"
 	_ "twitterLikeHW/generator"
 	//"twitterLikeHW/generator"
 	"twitterLikeHW/storage"
@@ -82,9 +83,9 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-
+		newId, _ := generator.GenerateBase64ID(6)
 		newPostOld = storage.PostOld{
-			Id:             storage.PostId(primitive.NewObjectID().Hex() + "G"),
+			Id:             storage.PostId(newId),
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
