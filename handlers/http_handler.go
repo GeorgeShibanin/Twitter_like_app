@@ -113,7 +113,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
+	postId := strings.TrimPrefix(r.URL.Path, "/api/v1/posts/")
 	Id := storage.PostId(postId)
 
 	storageType := os.Getenv("STORAGE_MODE")
@@ -126,7 +126,6 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-
 		h.StorageMu.RLock()
 		postTextOld, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
@@ -151,7 +150,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) {
-	postId := strings.Trim(r.URL.Path, "/api/v1/posts/")
+	postId := strings.TrimPrefix(r.URL.Path, "/api/v1/posts/")
 	Id := storage.PostId(postId)
 	tokenHeader := r.Header.Get("System-Design-User-Id")
 	if tokenHeader == "" || !authorIdPattern.MatchString(tokenHeader) {

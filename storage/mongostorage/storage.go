@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/bsonx"
+	"log"
 	"os"
 	"time"
 	storage2 "twitterLikeHW/storage"
@@ -78,11 +79,13 @@ func (s *storage) PutPost(ctx context.Context, post storage2.Text, userId storag
 func (s *storage) GetPostById(ctx context.Context, id storage2.PostId) (storage2.Post, error) {
 	var result storage2.Post
 	valueId, _ := primitive.ObjectIDFromHex(string(id))
-	err := s.posts.FindOne(ctx, bson.M{"_id": valueId}).Decode(&result)
+	err := s.posts.FindOne(ctx, bson.D{{"_id", valueId}}).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
+			log.Printf("no documents with key")
 			return storage2.Post{}, fmt.Errorf("no documents with key %v - %w", id, storage2.ErrNotFound)
 		}
+		log.Printf("something went wrong")
 		return storage2.Post{}, fmt.Errorf("something went wrong - %w", storage2.StorageError)
 	}
 	return result, nil
