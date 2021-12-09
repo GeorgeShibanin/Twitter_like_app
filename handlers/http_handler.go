@@ -267,8 +267,8 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 
 		sort.Slice(finalResponseOld, func(i, j int) bool {
 			layout := "2006-01-02T15:04:05.000Z"
-			first, _ := time.Parse(layout, string(finalResponseOld[i].CreatedAt))
-			second, _ := time.Parse(layout, string(finalResponseOld[j].CreatedAt))
+			first, _ := time.Parse(layout, string(finalResponseOld[i].LastModifiedAt))
+			second, _ := time.Parse(layout, string(finalResponseOld[j].LastModifiedAt))
 			return first.After(second)
 		})
 
