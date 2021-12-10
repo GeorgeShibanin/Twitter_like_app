@@ -28,9 +28,9 @@ func NewHTTPHandler(storage storage.Storage, limiterFactory *ratelimit.Factory, 
 	return &HTTPHandler{
 		StorageOld: old,
 		Storage:   storage,
-		postLimit: limiterFactory.NewLimiter("postPost", 10*time.Second, 146),
-		getLimit:  limiterFactory.NewLimiter("getPost", 10*time.Second, 146),
-		patchLimit:  limiterFactory.NewLimiter("patchPost", 10*time.Second, 146),
+		postLimit: limiterFactory.NewLimiter("postPost", time.Second, 146),
+		getLimit:  limiterFactory.NewLimiter("getPost", time.Second, 146),
+		patchLimit:  limiterFactory.NewLimiter("patchPost", time.Second, 146),
 	}
 }
 
