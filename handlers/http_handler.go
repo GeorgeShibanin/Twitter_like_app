@@ -84,7 +84,8 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 	if storageType == "inmemory" {
 		newId, _ := generator.GenerateBase64ID(6)
-		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339Nano))
+		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339))
+		//time.Now().UTC().
 		newPostOld = storage.PostOld{
 			Id:             storage.PostId(newId),
 			Text:           post.Text,
@@ -188,7 +189,7 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "wrong user for this post", http.StatusForbidden)
 			return
 		}
-		currentTime := storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
+		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339))
 		updatePostOld.LastModifiedAt = currentTime
 		updatePostOld.Text = updatePostText.Text
 		//newPost := storage.PostOld{
@@ -269,9 +270,9 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		h.StorageMu.RUnlock()
 
 		sort.Slice(finalResponseOld, func(i, j int) bool {
-			layout := "2006-01-02T15:04:05.000Z"
-			first, _ := time.Parse(layout, string(finalResponseOld[i].CreatedAt))
-			second, _ := time.Parse(layout, string(finalResponseOld[j].CreatedAt))
+			//layout := "2006-01-02T15:04:05.000Z"
+			first, _ := time.Parse(time.RFC3339, string(finalResponseOld[i].CreatedAt))
+			second, _ := time.Parse(time.RFC3339, string(finalResponseOld[j].CreatedAt))
 			return first.After(second)
 		})
 
