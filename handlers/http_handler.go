@@ -15,6 +15,7 @@ import (
 	_ "strings"
 	"sync"
 	"time"
+	"twitterLikeHW/generator"
 	_ "twitterLikeHW/generator"
 	//"twitterLikeHW/generator"
 	"twitterLikeHW/storage"
@@ -24,7 +25,7 @@ var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
-	StorageOld map[primitive.ObjectID]*storage.PostOld
+	StorageOld map[storage.PostId]*storage.PostOld
 	Storage    storage.Storage
 }
 
@@ -33,8 +34,8 @@ type PutAllPostsResponseData struct {
 	NextPage primitive.ObjectID `json:"nextPage"`
 }
 type PutAllPostsResponseDataOld struct {
-	Posts    []storage.PostOld  `json:"posts"`
-	NextPage primitive.ObjectID `json:"nextPage"`
+	Posts    []storage.PostOld `json:"posts"`
+	NextPage storage.PostId    `json:"nextPage"`
 }
 type PutAllPostsResponseNoNext struct {
 	Posts []storage.Post `json:"posts"`
@@ -82,9 +83,9 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		//newId, _ := generator.GenerateBase64ID(6)
+		newId, _ := generator.GenerateBase64ID(6)
 		newPostOld = storage.PostOld{
-			Id:             primitive.NewObjectID(),
+			Id:             storage.PostId(newId),
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
@@ -126,9 +127,8 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		IdM, _ := primitive.ObjectIDFromHex(postId)
 		h.StorageMu.RLock()
-		postTextOld, found = h.StorageOld[IdM]
+		postTextOld, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -176,9 +176,8 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		IdM, _ := primitive.ObjectIDFromHex(postId)
 		h.StorageMu.RLock()
-		updatePostOld, found = h.StorageOld[IdM]
+		updatePostOld, found = h.StorageOld[Id]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -188,18 +187,18 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "wrong user for this post", http.StatusForbidden)
 			return
 		}
-		updatePostOld.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
-		updatePostOld.Text = updatePostText.Text
-		//newPost := storage.PostOld{
-		//	Id:             Id,
-		//	Text:           updatePostText.Text,
-		//	AuthorId:       storage.UserId(tokenHeader),
-		//	CreatedAt:      updatePostOld.CreatedAt,
-		//	LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-		//}
-		//h.StorageMu.Lock()
-		//h.StorageOld[Id] = newPost
-		//h.StorageMu.Unlock()
+		newPost := storage.PostOld{
+			Id:             Id,
+			Text:           updatePostText.Text,
+			AuthorId:       storage.UserId(tokenHeader),
+			CreatedAt:      updatePostOld.CreatedAt,
+			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+		}
+
+		h.StorageMu.Lock()
+		delete(h.StorageOld, Id)
+		h.StorageOld[Id] = &newPost
+		h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(updatePostOld)
 	} else {
 		updatePost, err = h.Storage.GetPostById(r.Context(), Id)
@@ -268,17 +267,15 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		h.StorageMu.RUnlock()
 
 		sort.Slice(finalResponseOld, func(i, j int) bool {
-			//layout := "2006-01-02T15:04:05.000Z"
-			//first, _ := time.Parse(layout, string(finalResponseOld[i].CreatedAt))
-			//second, _ := time.Parse(layout, string(finalResponseOld[j].CreatedAt))
-			//return first.After(second)
-			return finalResponseOld[i].Id.Timestamp().After(finalResponseOld[j].Id.Timestamp())
+			layout := "2006-01-02T15:04:05.000Z"
+			first, _ := time.Parse(layout, string(finalResponseOld[i].CreatedAt))
+			second, _ := time.Parse(layout, string(finalResponseOld[j].CreatedAt))
+			return first.After(second)
 		})
 
 		startPage := 0
-		pagerokenId, _ := primitive.ObjectIDFromHex(pagetoken)
 		for i, value := range finalResponseOld {
-			if pagetoken != "" && value.Id == pagerokenId {
+			if pagetoken != "" && value.Id == storage.PostId(pagetoken) {
 				startPage = i
 			}
 		}
