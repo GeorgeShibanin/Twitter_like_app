@@ -28,11 +28,11 @@ type Post struct {
 }
 
 type PostOld struct {
-	Id             PostId       `json:"id,omitempty" bson:"_id,omitempty"`
-	Text           Text         `json:"text" bson:"text"`
-	AuthorId       UserId       `json:"authorId" bson:"authorId"`
-	CreatedAt      ISOTimestamp `json:"createdAt" bson:"createdAt"`
-	LastModifiedAt ISOTimestamp `json:"lastModifiedAt"  bson:"lastModifiedAt"`
+	Id             primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	Text           Text               `json:"text" bson:"text"`
+	AuthorId       UserId             `json:"authorId" bson:"authorId"`
+	CreatedAt      ISOTimestamp       `json:"createdAt" bson:"createdAt"`
+	LastModifiedAt ISOTimestamp       `json:"lastModifiedAt"  bson:"lastModifiedAt"`
 }
 
 type Storage interface {
