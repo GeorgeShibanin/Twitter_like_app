@@ -194,12 +194,14 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 			CreatedAt:      updatePostOld.CreatedAt,
 			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
-
 		h.StorageMu.Lock()
 		delete(h.StorageOld, Id)
+		h.StorageMu.Unlock()
+
+		h.StorageMu.Lock()
 		h.StorageOld[Id] = &newPost
 		h.StorageMu.Unlock()
-		rawResponse, _ = json.Marshal(updatePostOld)
+		rawResponse, _ = json.Marshal(newPost)
 	} else {
 		updatePost, err = h.Storage.GetPostById(r.Context(), Id)
 		if err != nil {
