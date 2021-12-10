@@ -64,9 +64,9 @@ func (s *Storage) GetPostById(ctx context.Context, id storage.PostId) (storage.P
 }
 
 func (s *Storage) PatchPostById(ctx context.Context, id storage.PostId, post storage.Text, userId storage.UserId) (storage.Post, error) {
-	fullKey := s.getFullKey(id)
+	//fullKey := s.getFullKey(id)
 
-	s.client.Del(ctx, fullKey)
+	//s.client.Del(ctx, fullKey)
 
 	result, err := s.persistentStorage.PatchPostById(ctx, id, post, userId)
 	if err != nil {
