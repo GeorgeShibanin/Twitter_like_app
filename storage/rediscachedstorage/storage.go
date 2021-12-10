@@ -94,5 +94,5 @@ func (s *Storage) getFullKey(key storage.PostId) string {
 func (s *Storage) storePost(ctx context.Context, id storage.PostId, post storage.Post) error {
 	fullKey := s.getFullKey(id)
 	bytes, _ := json.Marshal(post)
-	return s.client.Set(ctx, fullKey, bytes, time.Minute).Err()
+	return s.client.Set(ctx, fullKey, bytes, time.Hour).Err()
 }
