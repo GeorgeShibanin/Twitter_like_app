@@ -84,12 +84,13 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 	if storageType == "inmemory" {
 		newId, _ := generator.GenerateBase64ID(6)
+		currentTime := storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		newPostOld = storage.PostOld{
 			Id:             storage.PostId(newId),
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
-			CreatedAt:      storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+			CreatedAt:      currentTime,
+			LastModifiedAt: currentTime,
 		}
 		h.StorageMu.Lock()
 		h.StorageOld[newPostOld.Id] = newPostOld
@@ -187,14 +188,15 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "wrong user for this post", http.StatusForbidden)
 			return
 		}
-		updatePostOld.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
+		currentTime := storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
+		updatePostOld.LastModifiedAt = currentTime
 		updatePostOld.Text = updatePostText.Text
 		newPost := storage.PostOld{
 			Id:             Id,
 			Text:           updatePostText.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      updatePostOld.CreatedAt,
-			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+			LastModifiedAt: currentTime,
 		}
 		h.StorageMu.Lock()
 		h.StorageOld[Id] = newPost

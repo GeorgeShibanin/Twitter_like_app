@@ -56,12 +56,13 @@ func ensureIndexes(ctx context.Context, collection *mongo.Collection) {
 
 func (s *storage) PutPost(ctx context.Context, post storage2.Text, userId storage2.UserId) (storage2.Post, error) {
 	for attempt := 0; attempt < 5; attempt++ {
+		currentTime := storage2.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		item := storage2.Post{
 			Id:             primitive.NewObjectID(),
 			Text:           post,
 			AuthorId:       userId,
-			CreatedAt:      storage2.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-			LastModifiedAt: storage2.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
+			CreatedAt:      currentTime,
+			LastModifiedAt: currentTime,
 		}
 
 		_, err := s.posts.InsertOne(ctx, item)
