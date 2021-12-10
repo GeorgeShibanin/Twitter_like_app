@@ -251,25 +251,29 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	rawResponse := PutAllPostsResponseData{}
 	rawResponseOld := PutAllPostsResponseData{}
 	var err error
-
+	//result := []bson.M{}
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
 		for _, value := range h.StorageOld { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
 			if value.AuthorId == storage.UserId(Id) {
 				finalResponseOld = append(finalResponseOld, *value)
+				//newValue, _ := bson.Marshal(value)
+				//result = append(result, newValue)
 			}
 		}
 		h.StorageMu.RUnlock()
+
+		//sort.Slice(finalResponseOld, bson.M{"Id": -1})
 
 		sort.Slice(finalResponseOld, func(i, j int) bool {
 			//layout := "2006-01-02T15:04:05.000Z"
 			//first, _ := time.Parse(time.RFC3339, string(finalResponseOld[i].CreatedAt))
 			//second, _ := time.Parse(time.RFC3339, string(finalResponseOld[j].CreatedAt))
 			//return first.After(second)
-			first := finalResponseOld[i].Id
-			second := finalResponseOld[j].Id
+			first := finalResponseOld[i].Id.Hex()
+			second := finalResponseOld[j].Id.Hex()
 			//return first > second
-			return first.Timestamp().After(second.Timestamp())
+			return first > second
 		})
 
 		startPage := 0
