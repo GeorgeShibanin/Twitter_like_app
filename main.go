@@ -30,7 +30,7 @@ func NewServer() *http.Server {
 		}
 	} else if storageType == "inmemory" {
 		handler = &handlers.HTTPHandler{
-			StorageOld: make(map[storage.PostId]*storage.PostOld),
+			StorageOld: make(map[storage.PostId]storage.PostOld),
 		}
 	} else if storageType == "cached" {
 		mongoUrl := os.Getenv("MONGO_URL")

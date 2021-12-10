@@ -25,7 +25,7 @@ var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
-	StorageOld map[storage.PostId]*storage.PostOld
+	StorageOld map[storage.PostId]storage.PostOld
 	Storage    storage.Storage
 }
 
@@ -92,7 +92,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 		h.StorageMu.Lock()
-		h.StorageOld[newPostOld.Id] = &newPostOld
+		h.StorageOld[newPostOld.Id] = newPostOld
 		h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(newPostOld)
 	} else {
@@ -120,7 +120,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
-	var postTextOld *storage.PostOld
+	var postTextOld storage.PostOld
 	var postText storage.Post
 	var err error
 	var found bool
@@ -171,7 +171,7 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 	//storageType := "inmemory"
 
 	var found bool
-	var updatePostOld *storage.PostOld
+	var updatePostOld storage.PostOld
 	var updatePost storage.Post
 	var rawResponse []byte
 
@@ -187,6 +187,8 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 			http.Error(rw, "wrong user for this post", http.StatusForbidden)
 			return
 		}
+		updatePostOld.LastModifiedAt = storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
+		updatePostOld.Text = updatePostText.Text
 		newPost := storage.PostOld{
 			Id:             Id,
 			Text:           updatePostText.Text,
@@ -195,13 +197,9 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 			LastModifiedAt: storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
 		}
 		h.StorageMu.Lock()
-		delete(h.StorageOld, Id)
+		h.StorageOld[Id] = newPost
 		h.StorageMu.Unlock()
-
-		h.StorageMu.Lock()
-		h.StorageOld[Id] = &newPost
-		h.StorageMu.Unlock()
-		rawResponse, _ = json.Marshal(newPost)
+		rawResponse, _ = json.Marshal(updatePostOld)
 	} else {
 		updatePost, err = h.Storage.GetPostById(r.Context(), Id)
 		if err != nil {
@@ -263,7 +261,7 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 		h.StorageMu.RLock()
 		for _, value := range h.StorageOld { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
 			if value.AuthorId == storage.UserId(Id) {
-				finalResponseOld = append(finalResponseOld, *value)
+				finalResponseOld = append(finalResponseOld, value)
 			}
 		}
 		h.StorageMu.RUnlock()
