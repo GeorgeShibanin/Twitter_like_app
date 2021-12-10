@@ -16,16 +16,29 @@ import (
 	"sync"
 	"time"
 	_ "twitterLikeHW/generator"
+	"twitterLikeHW/ratelimit"
+
 	//"twitterLikeHW/generator"
 	"twitterLikeHW/storage"
 )
 
 var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
+func NewHTTPHandler(storage storage.Storage, limiterFactory *ratelimit.Factory, old map[primitive.ObjectID]*storage.Post) *HTTPHandler {
+	return &HTTPHandler{
+		StorageOld: old,
+		Storage:   storage,
+		postLimit: limiterFactory.NewLimiter("post_url", 10*time.Second, 2),
+		getLimit:  limiterFactory.NewLimiter("get_url", 1*time.Minute, 10),
+	}
+}
+
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
 	StorageOld map[primitive.ObjectID]*storage.Post
 	Storage    storage.Storage
+	postLimit *ratelimit.Limiter
+	getLimit  *ratelimit.Limiter
 }
 
 type PutAllPostsResponseData struct {
@@ -53,6 +66,19 @@ func HandlePing(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) {
+	storageType := os.Getenv("STORAGE_MODE")
+	if storageType != "inmemory" {
+		canDo, err := h.postLimit.CanDoAt(r.Context(), time.Now())
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !canDo {
+			http.Error(rw, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	tokenHeader := r.Header.Get("System-Design-User-Id")
 	if tokenHeader == "" || !authorIdPattern.MatchString(tokenHeader) {
 		http.Error(rw, "problem with token", http.StatusUnauthorized)
@@ -67,7 +93,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	storageType := os.Getenv("STORAGE_MODE")
+
 	//storageType := "inmemory"
 
 	var newPost storage.Post
@@ -105,17 +131,30 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
+	storageType := os.Getenv("STORAGE_MODE")
+	if storageType != "inmemory" {
+		canDo, err := h.postLimit.CanDoAt(r.Context(), time.Now())
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !canDo {
+			http.Error(rw, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	rw.Header().Set("Content-Type", "application/json")
 	postId := strings.TrimPrefix(r.URL.Path, "/api/v1/posts/")
 	Id := storage.PostId(postId)
 
-	storageType := os.Getenv("STORAGE_MODE")
+	//storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
 	var postTextOld *storage.Post
 	var postText storage.Post
-	var err error
 	var found bool
+	var err error
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
@@ -144,6 +183,19 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) {
+	storageType := os.Getenv("STORAGE_MODE")
+	if storageType != "inmemory" {
+		canDo, err := h.postLimit.CanDoAt(r.Context(), time.Now())
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !canDo {
+			http.Error(rw, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	postId := strings.TrimPrefix(r.URL.Path, "/api/v1/posts/")
 	Id := storage.PostId(postId)
 	tokenHeader := r.Header.Get("System-Design-User-Id")
@@ -160,7 +212,7 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 	}
 	rw.Header().Set("Content-Type", "application/json")
 
-	storageType := os.Getenv("STORAGE_MODE")
+	//storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
 	var found bool
@@ -223,6 +275,19 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request) {
+	storageType := os.Getenv("STORAGE_MODE")
+	if storageType != "inmemory" {
+		canDo, err := h.postLimit.CanDoAt(r.Context(), time.Now())
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !canDo {
+			http.Error(rw, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	rw.Header().Set("Content-Type", "application/json")
 	pagetoken := r.URL.Query().Get("page")
 	size := r.URL.Query().Get("size")
@@ -243,36 +308,29 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	userId := strings.TrimPrefix(r.URL.Path, "/api/v1/users/")
 	Id := strings.TrimSuffix(userId, "/posts")
 
-	storageType := os.Getenv("STORAGE_MODE")
+	//storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
 	var finalResponse []storage.Post
 	var finalResponseOld []storage.Post
+	var err error
 	rawResponse := PutAllPostsResponseData{}
 	rawResponseOld := PutAllPostsResponseData{}
-	var err error
-	//result := []bson.M{}
+
 	if storageType == "inmemory" {
 		h.StorageMu.RLock()
 		for _, value := range h.StorageOld { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
 			if value.AuthorId == storage.UserId(Id) {
 				finalResponseOld = append(finalResponseOld, *value)
-				//newValue, _ := bson.Marshal(value)
-				//result = append(result, newValue)
+
 			}
 		}
 		h.StorageMu.RUnlock()
 
-		//sort.Slice(finalResponseOld, bson.M{"Id": -1})
 
 		sort.Slice(finalResponseOld, func(i, j int) bool {
-			//layout := "2006-01-02T15:04:05.000Z"
-			//first, _ := time.Parse(time.RFC3339, string(finalResponseOld[i].CreatedAt))
-			//second, _ := time.Parse(time.RFC3339, string(finalResponseOld[j].CreatedAt))
-			//return first.After(second)
 			first := finalResponseOld[i].Id.Hex()
 			second := finalResponseOld[j].Id.Hex()
-			//return first > second
 			return first > second
 		})
 

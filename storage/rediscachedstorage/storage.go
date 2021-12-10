@@ -10,10 +10,10 @@ import (
 	"twitterLikeHW/storage"
 )
 
-func NewStorage(redisUrl string, persistentStorage storage.Storage) *Storage {
+func NewStorage(persistentStorage storage.Storage, client *redis.Client) *Storage {
 	return &Storage{
 		persistentStorage: persistentStorage,
-		client:            redis.NewClient(&redis.Options{Addr: redisUrl}),
+		client:            client,
 	}
 }
 
