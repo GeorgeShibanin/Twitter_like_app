@@ -84,7 +84,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 
 	if storageType == "inmemory" {
 		newId, _ := generator.GenerateBase64ID(6)
-		currentTime := storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
+		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339Nano))
 		newPostOld = storage.PostOld{
 			Id:             storage.PostId(newId),
 			Text:           post.Text,
@@ -191,15 +191,15 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		currentTime := storage.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 		updatePostOld.LastModifiedAt = currentTime
 		updatePostOld.Text = updatePostText.Text
-		newPost := storage.PostOld{
-			Id:             Id,
-			Text:           updatePostText.Text,
-			AuthorId:       storage.UserId(tokenHeader),
-			CreatedAt:      updatePostOld.CreatedAt,
-			LastModifiedAt: currentTime,
-		}
+		//newPost := storage.PostOld{
+		//	Id:             updatePostOld.Id,
+		//	Text:           updatePostText.Text,
+		//	AuthorId:       updatePostOld.AuthorId,
+		//	CreatedAt:      updatePostOld.CreatedAt,
+		//	LastModifiedAt: currentTime,
+		//}
 		h.StorageMu.Lock()
-		h.StorageOld[Id] = newPost
+		h.StorageOld[Id] = updatePostOld
 		h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(updatePostOld)
 	} else {
