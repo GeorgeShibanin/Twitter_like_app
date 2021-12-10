@@ -9,7 +9,7 @@ services:
       MONGO_URL: 'mongodb://database:27017'
       MONGO_DBNAME: 'milestone'
       SERVER_PORT: 8080
-      STORAGE_MODE: 'cached'
+      STORAGE_MODE: 'inmemory'
       REDIS_URL: 'cache:6379'
     depends_on:
       - database
