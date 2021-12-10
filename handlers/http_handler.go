@@ -13,7 +13,7 @@ import (
 	_ "strconv"
 	"strings"
 	_ "strings"
-	"sync"
+	_ "sync"
 	"time"
 	"twitterLikeHW/generator"
 	_ "twitterLikeHW/generator"
@@ -24,7 +24,6 @@ import (
 var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
 type HTTPHandler struct {
-	StorageMu  sync.RWMutex
 	StorageOld map[storage.PostId]storage.PostOld
 	Storage    storage.Storage
 }
@@ -93,9 +92,7 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 			CreatedAt:      currentTime,
 			LastModifiedAt: currentTime,
 		}
-		h.StorageMu.Lock()
 		h.StorageOld[newPostOld.Id] = newPostOld
-		h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(newPostOld)
 	} else {
 		newPost, err = h.Storage.PutPost(r.Context(), post.Text, storage.UserId(tokenHeader))
@@ -129,9 +126,7 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		h.StorageMu.RLock()
 		postTextOld, found = h.StorageOld[Id]
-		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
 			return
@@ -178,9 +173,7 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		h.StorageMu.RLock()
 		updatePostOld, found = h.StorageOld[Id]
-		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
 			return
@@ -192,17 +185,15 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339))
 		updatePostOld.LastModifiedAt = currentTime
 		updatePostOld.Text = updatePostText.Text
-		//newPost := storage.PostOld{
-		//	Id:             updatePostOld.Id,
-		//	Text:           updatePostText.Text,
-		//	AuthorId:       updatePostOld.AuthorId,
-		//	CreatedAt:      updatePostOld.CreatedAt,
-		//	LastModifiedAt: currentTime,
-		//}
-		h.StorageMu.Lock()
-		h.StorageOld[Id] = updatePostOld
-		h.StorageMu.Unlock()
-		rawResponse, _ = json.Marshal(updatePostOld)
+		newPost := storage.PostOld{
+			Id:             updatePostOld.Id,
+			Text:           updatePostText.Text,
+			AuthorId:       updatePostOld.AuthorId,
+			CreatedAt:      updatePostOld.CreatedAt,
+			LastModifiedAt: currentTime,
+		}
+		h.StorageOld[Id] = newPost
+		rawResponse, _ = json.Marshal(newPost)
 	} else {
 		updatePost, err = h.Storage.GetPostById(r.Context(), Id)
 		if err != nil {
@@ -261,14 +252,11 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	var err error
 
 	if storageType == "inmemory" {
-		h.StorageMu.RLock()
 		for _, value := range h.StorageOld { //итерируемся по мапу постов и выводим пост если совпал айдишник автора и юзера в запросе
 			if value.AuthorId == storage.UserId(Id) {
 				finalResponseOld = append(finalResponseOld, value)
 			}
 		}
-		h.StorageMu.RUnlock()
-
 		sort.Slice(finalResponseOld, func(i, j int) bool {
 			//layout := "2006-01-02T15:04:05.000Z"
 			first, _ := time.Parse(time.RFC3339, string(finalResponseOld[i].CreatedAt))
