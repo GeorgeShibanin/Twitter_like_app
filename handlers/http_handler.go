@@ -184,16 +184,6 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339))
 		updatePostOld.LastModifiedAt = currentTime
 		updatePostOld.Text = newText.Text
-		////newPost := storage.PostOld{
-		////	Id:             updatePostOld.Id,
-		////	Text:           updatePostText.Text,
-		////	AuthorId:       updatePostOld.AuthorId,
-		////	CreatedAt:      updatePostOld.CreatedAt,
-		////	LastModifiedAt: currentTime,
-		////}
-		//h.StorageMu.Lock()
-		//h.StorageOld[Id] = updatePostOld
-		//h.StorageMu.Unlock()
 		rawResponse, _ = json.Marshal(updatePostOld)
 	} else {
 		updatePost, err = h.Storage.GetPostById(r.Context(), Id)
