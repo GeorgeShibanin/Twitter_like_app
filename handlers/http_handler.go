@@ -15,7 +15,6 @@ import (
 	_ "strings"
 	"sync"
 	"time"
-	"twitterLikeHW/generator"
 	_ "twitterLikeHW/generator"
 	//"twitterLikeHW/generator"
 	"twitterLikeHW/storage"
@@ -25,7 +24,7 @@ var authorIdPattern = regexp.MustCompile(`[0-9a-f]+`)
 
 type HTTPHandler struct {
 	StorageMu  sync.RWMutex
-	StorageOld map[storage.PostId]*storage.PostOld
+	StorageOld map[primitive.ObjectID]*storage.Post
 	Storage    storage.Storage
 }
 
@@ -33,15 +32,8 @@ type PutAllPostsResponseData struct {
 	Posts    []storage.Post     `json:"posts"`
 	NextPage primitive.ObjectID `json:"nextPage"`
 }
-type PutAllPostsResponseDataOld struct {
-	Posts    []storage.PostOld `json:"posts"`
-	NextPage storage.PostId    `json:"nextPage"`
-}
 type PutAllPostsResponseNoNext struct {
 	Posts []storage.Post `json:"posts"`
-}
-type PutAllPostsResponseNoNextOld struct {
-	Posts []storage.PostOld `json:"posts"`
 }
 type PutRequestData struct {
 	Text storage.Text `json:"text"`
@@ -78,25 +70,23 @@ func (h *HTTPHandler) HandleCreatePost(rw http.ResponseWriter, r *http.Request) 
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
-	var newPostOld storage.PostOld
 	var newPost storage.Post
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
-		newId := generator.GetRandomId(6)
+		newId := primitive.NewObjectID()
 		currentTime := storage.ISOTimestamp(time.Now().UTC().Format(time.RFC3339))
-		//time.Now().UTC().
-		newPostOld = storage.PostOld{
-			Id:             storage.PostId(newId),
+		newPost = storage.Post{
+			Id:             newId,
 			Text:           post.Text,
 			AuthorId:       storage.UserId(tokenHeader),
 			CreatedAt:      currentTime,
 			LastModifiedAt: currentTime,
 		}
 		h.StorageMu.Lock()
-		h.StorageOld[newPostOld.Id] = &newPostOld
+		h.StorageOld[newPost.Id] = &newPost
 		h.StorageMu.Unlock()
-		rawResponse, _ = json.Marshal(newPostOld)
+		rawResponse, _ = json.Marshal(newPost)
 	} else {
 		newPost, err = h.Storage.PutPost(r.Context(), post.Text, storage.UserId(tokenHeader))
 		if err != nil {
@@ -122,15 +112,16 @@ func (h *HTTPHandler) HandleGetPosts(rw http.ResponseWriter, r *http.Request) {
 	storageType := os.Getenv("STORAGE_MODE")
 	//storageType := "inmemory"
 
-	var postTextOld *storage.PostOld
+	var postTextOld *storage.Post
 	var postText storage.Post
 	var err error
 	var found bool
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
+		IdMemory, _ := primitive.ObjectIDFromHex(postId)
 		h.StorageMu.RLock()
-		postTextOld, found = h.StorageOld[Id]
+		postTextOld, found = h.StorageOld[IdMemory]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -173,13 +164,14 @@ func (h *HTTPHandler) HandlePatchPosts(rw http.ResponseWriter, r *http.Request) 
 	//storageType := "inmemory"
 
 	var found bool
-	var updatePostOld *storage.PostOld
+	var updatePostOld *storage.Post
 	var updatePost storage.Post
 	var rawResponse []byte
 
 	if storageType == "inmemory" {
+		IdMemory, _ := primitive.ObjectIDFromHex(postId)
 		h.StorageMu.RLock()
-		updatePostOld, found = h.StorageOld[Id]
+		updatePostOld, found = h.StorageOld[IdMemory]
 		h.StorageMu.RUnlock()
 		if !found {
 			http.NotFound(rw, r)
@@ -255,9 +247,9 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 	//storageType := "inmemory"
 
 	var finalResponse []storage.Post
-	var finalResponseOld []storage.PostOld
+	var finalResponseOld []storage.Post
 	rawResponse := PutAllPostsResponseData{}
-	rawResponseOld := PutAllPostsResponseDataOld{}
+	rawResponseOld := PutAllPostsResponseData{}
 	var err error
 
 	if storageType == "inmemory" {
@@ -271,14 +263,19 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 
 		sort.Slice(finalResponseOld, func(i, j int) bool {
 			//layout := "2006-01-02T15:04:05.000Z"
-			first, _ := time.Parse(time.RFC3339, string(finalResponseOld[i].CreatedAt))
-			second, _ := time.Parse(time.RFC3339, string(finalResponseOld[j].CreatedAt))
-			return first.After(second)
+			//first, _ := time.Parse(time.RFC3339, string(finalResponseOld[i].CreatedAt))
+			//second, _ := time.Parse(time.RFC3339, string(finalResponseOld[j].CreatedAt))
+			//return first.After(second)
+			first := finalResponseOld[i].Id
+			second := finalResponseOld[j].Id
+			//return first > second
+			return first.Timestamp().After(second.Timestamp())
 		})
 
 		startPage := 0
 		for i, value := range finalResponseOld {
-			if pagetoken != "" && value.Id == storage.PostId(pagetoken) {
+			pagetokenObj, _ := primitive.ObjectIDFromHex(pagetoken)
+			if pagetoken != "" && value.Id == pagetokenObj {
 				startPage = i
 			}
 		}
@@ -293,10 +290,10 @@ func (h *HTTPHandler) HandleGetUserPosts(rw http.ResponseWriter, r *http.Request
 			rawResponseOld.NextPage = finalResponseOld[sizepage].Id
 			returnResponseOld, _ = json.Marshal(rawResponseOld)
 		} else {
-			returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNextOld{Posts: finalResponseOld})
+			returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: finalResponseOld})
 		}
 		if len(finalResponseOld) == 0 {
-			returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNextOld{Posts: make([]storage.PostOld, 0)})
+			returnResponseOld, _ = json.Marshal(PutAllPostsResponseNoNext{Posts: make([]storage.Post, 0)})
 		}
 		_, err = rw.Write(returnResponseOld)
 		if err != nil {
