@@ -10,10 +10,10 @@ import (
 	"twitterLikeHW/storage"
 )
 
-func NewStorage(persistentStorage storage.Storage, client *redis.Client) *Storage {
+func NewStorage(redisUrl string, persistentStorage storage.Storage) *Storage {
 	return &Storage{
 		persistentStorage: persistentStorage,
-		client:            client,
+		client:            redis.NewClient(&redis.Options{Addr: redisUrl}),
 	}
 }
 
@@ -27,7 +27,6 @@ var _ storage.Storage = (*Storage)(nil)
 func (s *Storage) PutPost(ctx context.Context, post storage.Text, userId storage.UserId) (storage.Post, error) {
 	postPut, err := s.persistentStorage.PutPost(ctx, post, userId)
 	if err != nil {
-		log.Printf("WATAFAKA")
 		return postPut, err
 	}
 
@@ -65,7 +64,40 @@ func (s *Storage) GetPostById(ctx context.Context, id storage.PostId) (storage.P
 
 func (s *Storage) PatchPostById(ctx context.Context, id storage.PostId, post storage.Text, userId storage.UserId) (storage.Post, error) {
 	fullKey := s.getFullKey(id)
-	s.client.Del(ctx, fullKey)
+
+	//getFromRed
+
+	get := s.client.Get(ctx, fullKey)
+	result := storage.Post{}
+	switch rawPost, err := get.Result(); {
+	case err == redis.Nil:
+	//go to persistence
+	case err != nil:
+		return storage.Post{}, fmt.Errorf("%w: failed to get value from redis due to error %s", storage.StorageError, err)
+	default:
+		//if in Red then check text
+		err2 := json.Unmarshal([]byte(rawPost), &result)
+		if err2 != nil {
+			return storage.Post{}, nil
+		}
+
+		//check text
+		if result.Text == post {
+			return result, nil
+		} else {
+			//update mongo value and add to redis
+			s.client.Del(ctx, fullKey)
+			result, err = s.persistentStorage.PatchPostById(ctx, id, post, userId)
+			if err != nil {
+				return result, err
+			}
+			//fullKey := s.getFullKey(storage.PostId(result.Id.Hex()))
+			if err = s.storePost(ctx, id, result); err != nil {
+				log.Printf("Failed to insert key %s into cache due to an error: %s\n", id, err)
+			}
+			return result, nil
+		}
+	}
 	result, err := s.persistentStorage.PatchPostById(ctx, id, post, userId)
 	if err != nil {
 		return result, err
@@ -74,7 +106,6 @@ func (s *Storage) PatchPostById(ctx context.Context, id storage.PostId, post sto
 	if err = s.storePost(ctx, id, result); err != nil {
 		log.Printf("Failed to insert key %s into cache due to an error: %s\n", id, err)
 	}
-
 	return result, nil
 }
 

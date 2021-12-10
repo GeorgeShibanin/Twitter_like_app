@@ -27,14 +27,6 @@ type Post struct {
 	LastModifiedAt ISOTimestamp       `json:"lastModifiedAt"  bson:"lastModifiedAt"`
 }
 
-//type PostOld struct {
-//	Id             PostId       `json:"id"`
-//	Text           Text         `json:"text"`
-//	AuthorId       UserId       `json:"authorId"`
-//	CreatedAt      ISOTimestamp `json:"createdAt"`
-//	LastModifiedAt ISOTimestamp `json:"lastModifiedAt"`
-//}
-
 type Storage interface {
 	PutPost(ctx context.Context, post Text, userId UserId) (Post, error)
 	GetPostById(ctx context.Context, id PostId) (Post, error)

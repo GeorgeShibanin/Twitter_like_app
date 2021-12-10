@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	_ "go.mongodb.org/mongo-driver/bson/primitive"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"time"
 	"twitterLikeHW/handlers"
-	"twitterLikeHW/ratelimit"
 	"twitterLikeHW/storage"
 	"twitterLikeHW/storage/mongostorage"
 	"twitterLikeHW/storage/rediscachedstorage"
@@ -38,15 +36,11 @@ func NewServer() *http.Server {
 	} else if storageType == "cached" {
 		mongoUrl := os.Getenv("MONGO_URL")
 		mongoStorage := mongostorage.NewStorage(mongoUrl)
-		//redisUrl := os.Getenv("REDIS_URL")
-		redisClient := redis.NewClient(&redis.Options{
-			Addr: os.Getenv("REDIS_URL"),
-		})
-		cachedStorage := rediscachedstorage.NewStorage(mongoStorage, redisClient)
-		rateLimitFactory := ratelimit.NewFactory(redisClient)
-		handler = handlers.NewHTTPHandler(cachedStorage, rateLimitFactory, make(map[primitive.ObjectID]*storage.Post))
-		//	Storage: cachedStorage,
-		//}
+		redisUrl := os.Getenv("REDIS_URL")
+		cachedStorage := rediscachedstorage.NewStorage(redisUrl, mongoStorage)
+		handler = &handlers.HTTPHandler{
+			Storage: cachedStorage,
+		}
 	}
 
 	r.HandleFunc("/", handlers.HandleRoot).Methods("GET", "POST")

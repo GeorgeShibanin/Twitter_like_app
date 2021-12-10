@@ -93,20 +93,10 @@ func (s *storage) GetPostById(ctx context.Context, id storage2.PostId) (storage2
 }
 
 func (s *storage) PatchPostById(ctx context.Context, id storage2.PostId, post storage2.Text, userId storage2.UserId) (storage2.Post, error) {
-	//var result storage2.Post
 	valueId, _ := primitive.ObjectIDFromHex(string(id))
-	result, err := s.GetPostById(ctx, id)
 	currentTime := storage2.ISOTimestamp(time.Now().UTC().Format(time.RFC3339))
-	result.Text = post
-	result.LastModifiedAt = currentTime
-	/*item := storage2.Post{
-		Id:             id,
-		Text:           post,
-		AuthorId:       userId,
-		CreatedAt:      result.CreatedAt,
-		LastModifiedAt: storage2.ISOTimestamp(time.Now().UTC().Format("2006-01-02T15:04:05.000Z")),
-	}*/
-	_, err = s.posts.UpdateOne(
+
+	newPost1 := s.posts.FindOneAndUpdate(
 		ctx,
 		bson.M{"_id": valueId},
 		bson.D{
@@ -114,8 +104,10 @@ func (s *storage) PatchPostById(ctx context.Context, id storage2.PostId, post st
 			{"$set", bson.D{{"lastModifiedAt", currentTime}}},
 		},
 	)
+	result := storage2.Post{}
+	err := newPost1.Decode(&result)
 	if err != nil {
-		return storage2.Post{}, fmt.Errorf("something went wrong - %w", storage2.StorageError)
+		return storage2.Post{}, fmt.Errorf("%w", storage2.StorageError)
 	}
 	return result, nil
 }
